@@ -31,6 +31,7 @@ class TracePropagationTest {
     static void urls(DynamicPropertyRegistry r) {
         r.add("home.history.url", FakeServices::url);
         r.add("home.catalog.url", FakeServices::url);
+        r.add("home.recs.url", FakeServices::url);
     }
 
     @Autowired TestRestTemplate http;
@@ -47,11 +48,12 @@ class TracePropagationTest {
 
         List<String> seen = new ArrayList<>(FakeServices.history.traceparents);
         seen.addAll(FakeServices.catalog.traceparents);
-        assertEquals(5, seen.size(), "1 history + 3 rows + 1 batch lookup: " + seen);
+        seen.addAll(FakeServices.recs.traceparents);
+        assertEquals(6, seen.size(), "1 history + 1 recs + 3 rows + 1 batch lookup: " + seen);
         Set<String> traceIds = seen.stream().map(tp -> tp.split("-").length > 1 ? tp.split("-")[1] : tp)
                 .collect(Collectors.toSet());
         assertEquals(Set.of(traceId), traceIds, "every call, on every row thread, continues the page's trace");
-        assertTrue(seen.stream().map(tp -> tp.split("-")[2]).distinct().count() == 5,
+        assertTrue(seen.stream().map(tp -> tp.split("-")[2]).distinct().count() == 6,
                 "each call is its own span inside that trace");
     }
 }

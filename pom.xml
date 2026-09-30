@@ -26,6 +26,7 @@
         <module>user-service</module>
         <module>playback-service</module>
         <module>history-service</module>
+        <module>recs-service</module>
         <module>home-service</module>
         <module>gateway</module>
     </modules>
@@ -37,6 +38,8 @@
         <spring-cloud.version>2025.0.0</spring-cloud.version>
         <resilience4j.version>2.3.0</resilience4j.version>
         <nimbus-jose-jwt.version>10.4</nimbus-jose-jwt.version>
+        <!-- in-process sentence embeddings (all-MiniLM-L6-v2, 384 dims, ONNX); no API key or model server -->
+        <minilm.version>1.20.2-beta30</minilm.version>
     </properties>
 
     <dependencyManagement>
@@ -54,6 +57,11 @@
                 <version>${resilience4j.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>
+                <version>${minilm.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.nimbusds</groupId>

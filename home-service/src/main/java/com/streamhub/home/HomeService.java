@@ -40,6 +40,7 @@ public final class HomeService {
 
     private final Dependency history;
     private final Dependency catalog;
+    private final Dependency recs;
     private final List<String> genres;
     private final Duration deadline;
     /**
@@ -55,8 +56,8 @@ public final class HomeService {
     /** Last good copy of each shared (non-personal) row, served when catalog is down. */
     private final Map<String, Row> lastGood = new ConcurrentHashMap<>();
 
-    public HomeService(Dependency history, Dependency catalog, List<String> genres, Duration deadline,
-                       MeterRegistry metrics) {
+    public HomeService(Dependency history, Dependency catalog, Dependency recs, List<String> genres,
+                       Duration deadline, MeterRegistry metrics) {
         this.metrics = metrics;
         // Both series exist from the start: a ratio over a missing
         // complete="false" series is "no data", not 0, while all is well.
@@ -64,26 +65,33 @@ public final class HomeService {
         metrics.counter("home.pages", "complete", "false");
         this.history = history;
         this.catalog = catalog;
+        this.recs = recs;
         this.genres = genres;
         this.deadline = deadline;
     }
 
     public Home home(long userId) {
         long start = System.nanoTime();
+        List<String> ids = new ArrayList<>();
         List<CompletableFuture<Outcome>> rows = new ArrayList<>();
+        ids.add("continue-watching");
         rows.add(fetch(() -> continueWatching(userId)));
+        ids.add("for-you");
+        rows.add(fetch(() -> forYou(userId)));
         for (String genre : genres) {
+            ids.add("genre:" + genre);
             rows.add(fetch(() -> genreRow(genre)));
         }
 
         List<Row> page = new ArrayList<>();
         Set<String> degraded = new TreeSet<>();
-        for (CompletableFuture<Outcome> f : rows) {
+        for (int i = 0; i < rows.size(); i++) {
+            CompletableFuture<Outcome> f = rows.get(i);
             long left = deadline.toNanos() - (System.nanoTime() - start);
             Outcome o = f.completeOnTimeout(null, Math.max(0, left), TimeUnit.NANOSECONDS).join();
             if (o == null) {
                 // Missed the deadline: whatever it was waiting for is too slow today.
-                o = lateFallback(rowIdOf(rows.indexOf(f)));
+                o = lateFallback(ids.get(i));
             }
             if (o.failedDependency() != null) {
                 degraded.add(o.failedDependency());
@@ -106,10 +114,6 @@ public final class HomeService {
 
     private CompletableFuture<Outcome> fetch(java.util.function.Supplier<Outcome> work) {
         return CompletableFuture.supplyAsync(work, workers);
-    }
-
-    private String rowIdOf(int index) {
-        return index == 0 ? "continue-watching" : "genre:" + genres.get(index - 1);
     }
 
     private Outcome continueWatching(long userId) {
@@ -139,6 +143,21 @@ public final class HomeService {
                 failed == null ? Source.LIVE : Source.STALE), failed);
     }
 
+    /**
+     * Personal, so there's no shared last-good copy to fall back to: if recs
+     * is down the row is left out and the rest of the page is unaffected.
+     */
+    private Outcome forYou(long userId) {
+        try {
+            Clients.Recs r = Clients.forYou(recs, userId, 10);
+            List<Item> items = r.titles().stream().map(t -> new Item(t.id(), t.name(), null)).toList();
+            String heading = "PERSONAL".equals(r.source()) ? "Picked for you" : "Trending today";
+            return new Outcome(new Row("for-you", heading, items, Source.LIVE), null);
+        } catch (RuntimeException e) {
+            return new Outcome(null, recs.name());
+        }
+    }
+
     private Outcome genreRow(String genre) {
         String id = "genre:" + genre;
         try {
@@ -155,6 +174,9 @@ public final class HomeService {
     private Outcome lateFallback(String id) {
         if (id.equals("continue-watching")) {
             return new Outcome(new Row(id, "Continue watching", List.of(), Source.UNAVAILABLE), history.name());
+        }
+        if (id.equals("for-you")) {
+            return new Outcome(null, recs.name());
         }
         return new Outcome(stale(id).orElse(null), catalog.name());
     }

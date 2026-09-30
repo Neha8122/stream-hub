@@ -33,6 +33,7 @@ class ChaosTest {
     static void urls(DynamicPropertyRegistry r) {
         r.add("home.history.url", FakeServices::url);
         r.add("home.catalog.url", FakeServices::url);
+        r.add("home.recs.url", FakeServices::url);
     }
 
     @Autowired HomeService home;
@@ -49,9 +50,27 @@ class ChaosTest {
     void allHealthy() {
         HomeService.Home h = home.home(1);
         assertEquals(List.of(), List.copyOf(h.degraded()));
-        assertEquals(4, h.rows().size());
+        assertEquals(5, h.rows().size());
         assertTrue(h.rows().stream().allMatch(r -> r.source() == HomeService.Source.LIVE));
         assertEquals("The Title 5", h.rows().get(0).items().get(0).name(), "continue watching has names");
+        assertEquals("Picked for you", row(h, "for-you").heading());
+    }
+
+    @Test
+    void recsDownLeavesOutJustItsRow() {
+        FakeServices.recs.status = 500;
+        HomeService.Home h = home.home(1);
+        assertEquals(List.of("recs"), List.copyOf(h.degraded()));
+        assertTrue(h.rows().stream().noneMatch(r -> r.id().equals("for-you")), "no stale copy of a personal row");
+        assertEquals(4, h.rows().size(), "every other row is served");
+    }
+
+    @Test
+    void slowRecsDoesntSlowThePage() {
+        FakeServices.recs.delayMs = 2_000;
+        HomeService.Home h = home.home(1);
+        assertTrue(h.tookMillis() < 450, "page took " + h.tookMillis() + " ms");
+        assertEquals(List.of("recs"), List.copyOf(h.degraded()));
     }
 
     @Test

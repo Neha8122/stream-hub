@@ -37,6 +37,24 @@ public class TitleController {
         return catalog.byGenre(genre, limit);
     }
 
+    /** A title's embedding, for services that compute with meaning (recs). 404 until it's indexed. */
+    @GetMapping("/{id}/embedding")
+    public ResponseEntity<float[]> embedding(@PathVariable long id) {
+        return ResponseEntity.of(catalog.embedding(id));
+    }
+
+    public record NearestRequest(float[] vector, List<Long> exclude, Integer limit) { }
+
+    /** Titles closest in meaning to a vector (e.g. a user's taste), best first. */
+    @PostMapping("/nearest")
+    public ResponseEntity<List<Title>> nearest(@RequestBody NearestRequest r) {
+        if (r.vector() == null || r.vector().length != Embedder.DIMENSIONS) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(catalog.nearest(r.vector(), r.exclude() == null ? List.of() : r.exclude(),
+                r.limit() == null ? 10 : r.limit()));
+    }
+
     @PostMapping
     public Title create(@RequestBody Title title) {
         return catalog.create(title);

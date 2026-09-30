@@ -18,6 +18,10 @@ home:
     url: ${CATALOG_URL:http://localhost:8181}
     timeout: 200ms
     max-concurrent: 30
+  recs:
+    url: ${RECS_URL:http://localhost:8186}
+    timeout: 200ms                # recs calls catalog itself, so a bit more room
+    max-concurrent: 20
   breaker:
     open-for: 5s                  # how long to leave a failing dependency alone
   genres: drama,sci-fi,comedy     # one row each

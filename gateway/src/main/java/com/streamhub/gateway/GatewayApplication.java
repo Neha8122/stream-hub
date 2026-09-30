@@ -69,6 +69,7 @@ public class GatewayApplication {
                         @Value("${routes.playback}") String playback,
                         @Value("${routes.history}") String history,
                         @Value("${routes.home}") String home,
+                        @Value("${routes.recs}") String recs,
                         @Value("${routes.timeout-ms}") int timeoutMs,
                         // Explicit qualifiers: @Primary would otherwise win over the
                         // parameter names, and login would silently get the lax limiter.
@@ -85,6 +86,12 @@ public class GatewayApplication {
                         .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
                         .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)
                         .uri(users))
+                // Service-to-service only (recs uses them): raw vectors and
+                // unbounded nearest-neighbour queries aren't for the public.
+                // Listed before "catalog" so it matches first.
+                .route("internal-only", r -> r.path("/titles/nearest", "/titles/*/embedding")
+                        .filters(f -> f.setStatus(404))
+                        .uri("no://op"))
                 .route("catalog", r -> r.path("/titles/**")
                         .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
                         .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)
@@ -93,7 +100,15 @@ public class GatewayApplication {
                         .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
                         .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)
                         .uri(playback))
-.route("home", r -> r.path("/home")
+                .route("search", r -> r.path("/search")
+                        .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
+                        .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)
+                        .uri(catalog))
+                .route("recs", r -> r.path("/recs/**")
+                        .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
+                        .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)
+                        .uri(recs))
+                .route("home", r -> r.path("/home")
                         .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
                         .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)
                         .uri(home))

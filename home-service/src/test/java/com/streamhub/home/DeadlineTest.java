@@ -25,6 +25,7 @@ class DeadlineTest {
     static void urls(DynamicPropertyRegistry r) {
         r.add("home.history.url", FakeServices::url);
         r.add("home.catalog.url", FakeServices::url);
+        r.add("home.recs.url", FakeServices::url);
     }
 
     @Autowired HomeService home;

@@ -58,10 +58,18 @@ public class HomeApplication {
         return new Dependency(new Dependency.Settings("catalog", url, timeout, max, openFor), http, b, h, r);
     }
 
+    @Bean Dependency recs(@Value("${home.recs.url}") String url, @Value("${home.recs.timeout}") Duration timeout,
+                          @Value("${home.recs.max-concurrent}") int max, @Value("${home.breaker.open-for}") Duration openFor,
+                          org.springframework.web.client.RestClient.Builder http,
+                          CircuitBreakerRegistry b, BulkheadRegistry h, RetryRegistry r) {
+        return new Dependency(new Dependency.Settings("recs", url, timeout, max, openFor), http, b, h, r);
+    }
+
     @Bean HomeService homeService(@Qualifier("history") Dependency history, @Qualifier("catalog") Dependency catalog,
+                                  @Qualifier("recs") Dependency recs,
                                   @Value("${home.genres}") String genres, @Value("${home.deadline}") Duration deadline,
                                   MeterRegistry metrics) {
-        return new HomeService(history, catalog, Arrays.asList(genres.split(",")), deadline, metrics);
+        return new HomeService(history, catalog, recs, Arrays.asList(genres.split(",")), deadline, metrics);
     }
 
     private final java.util.function.Supplier<HomeService> home;

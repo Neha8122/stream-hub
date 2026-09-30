@@ -40,6 +40,7 @@ final class FakeServices {
 
     static final Behaviour history = new Behaviour();
     static final Behaviour catalog = new Behaviour();
+    static final Behaviour recs = new Behaviour();
     static final HttpServer server = start();
 
     static String url() {
@@ -49,6 +50,7 @@ final class FakeServices {
     static void reset() {
         history.reset();
         catalog.reset();
+        recs.reset();
     }
 
     private FakeServices() { }
@@ -58,6 +60,8 @@ final class FakeServices {
             HttpServer s = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
             s.createContext("/history/continue-watching", ex -> serve(ex, history,
                     "[{\"titleId\":5,\"positionSeconds\":100,\"durationSeconds\":3600,\"updatedAt\":\"2026-09-30T10:00:00Z\"}]"));
+            s.createContext("/recs/for-you", ex -> serve(ex, recs,
+                    "{\"source\":\"PERSONAL\",\"titles\":[" + title(42) + "]}"));
             s.createContext("/titles", ex -> {
                 String body;
                 if (ex.getRequestURI().getPath().equals("/titles/batch")) {

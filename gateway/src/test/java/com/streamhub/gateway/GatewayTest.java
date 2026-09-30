@@ -55,6 +55,7 @@ class GatewayTest {
         r.add("routes.playback", () -> url);
         r.add("routes.history", () -> url);
         r.add("routes.home", () -> url);
+        r.add("routes.recs", () -> url);
         r.add("auth.jwt-secret", () -> SECRET);
     }
 
@@ -100,6 +101,14 @@ class GatewayTest {
         http.get().uri("/titles/1").header("Authorization", "Bearer " + jwt.issue(42, "neha@example.com"))
                 .exchange().expectStatus().isOk();
         assertEquals(List.of("/titles/1 user=42"), seen);
+    }
+
+    @Test
+    void internalCatalogEndpointsAreNotPublic() {
+        String token = "Bearer " + jwt.issue(42, "neha@example.com");
+        http.get().uri("/titles/7/embedding").header("Authorization", token).exchange().expectStatus().isNotFound();
+        http.post().uri("/titles/nearest").header("Authorization", token).exchange().expectStatus().isNotFound();
+        http.get().uri("/titles/7").header("Authorization", token).exchange().expectStatus().isOk();
     }
 
     @Test

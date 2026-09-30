@@ -261,6 +261,72 @@
           "legendFormat": "lag (records)"
         }
       ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Search: hybrid vs keyword-only (model slow or busy)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (mode) (rate(catalog_search_total[1m]))",
+          "legendFormat": "{{mode}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (reason) (rate(catalog_search_embed_skipped_total[1m]))",
+          "legendFormat": "skipped: {{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Recs: playback events into the taste store",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result) (rate(recs_events_total[1m]))",
+          "legendFormat": "{{result}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (source) (rate(recs_requests_total[1m]))",
+          "legendFormat": "for-you: {{source}}"
+        }
+      ]
     }
   ]
 }

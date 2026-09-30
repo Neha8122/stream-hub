@@ -1,7 +1,7 @@
 # Local infrastructure for stream-hub. Start with: docker compose -f infra/docker-compose.yml up -d
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16      # Postgres 16 + the pgvector extension (catalog search)
     environment:
       POSTGRES_USER: streamhub
       POSTGRES_PASSWORD: streamhub

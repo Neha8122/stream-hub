@@ -15,7 +15,7 @@ assistant that keeps working when the AI doesn't.
 | 2 | Playback + Kafka + idempotent consumers, DLQ | ✅ |
 | 3 | Resilience: timeouts, circuit breakers, bulkheads, rate limits | ✅ |
 | 4 | Observability: OpenTelemetry, Prometheus, Grafana, SLOs | ✅ |
-| 5 | AI: embeddings, hybrid search, live-feature recommendations | ⬜ |
+| 5 | AI: embeddings, hybrid search, live-feature recommendations | ✅ |
 | 6 | Assistant: LLM behind a breaker, semantic cache, guardrails | ⬜ |
 | 7 | Kubernetes, autoscaling, load tests, measured results | ⬜ |
 
@@ -159,6 +159,58 @@ Found on the way: the "complete" ratio read "no data" instead of 0 while
 all was well, because the `complete="false"` counter didn't exist until the
 first bad page. Both counters are now registered at startup.
 
+## AI search and live recommendations
+
+**Search** (`GET /search?q=`, in catalog). Each title has a 384-dimension
+embedding of its name, genres and description, from all-MiniLM-L6-v2 run
+in-process with ONNX (no API key, no model server), stored in Postgres with
+pgvector and an HNSW index. A query runs two searches at once, keyword
+(Postgres full-text) and meaning (nearest embeddings), and merges them with
+reciprocal rank fusion: each list contributes 1 / (60 + rank), so a title
+near the top of both beats one at the top of just one, and ts_rank and
+cosine distance never have to be put on one scale.
+
+The model is treated as a dependency: a 150 ms limit and at most 8
+embeddings in flight. Past either, search answers with keyword results and
+says `"mode": "KEYWORD"`. Titles are embedded off the write path: a new or
+edited title is keyword-searchable at once and meaning-searchable within
+seconds, and a write never waits for (or fails because of) the model.
+
+**Recommendations** (new `recs-service`, `GET /recs/for-you`). Its own
+Kafka consumer group on the playback events keeps a taste vector per user
+in Redis: a time-decayed sum of the embeddings of what they watched,
+weighted by minutes watched (half-life 3 days). "For you" is the titles
+nearest to it, minus what they've seen; a new user gets today's trending
+titles instead. An event's changes (taste, seen set, trending, done flag)
+are applied in one Lua script, so a redelivered event changes nothing. The
+home page has a new "For you" row; if recs is down it's left out.
+
+Live, all seven services running, through the gateway:
+
+| Check | Result |
+|---|---|
+| "lonely robot searching for its makers" | top 3 are titles about robots, found by both halves; "The Lost Machine" (an android looking for its makers) is found by meaning only and ranks just below them |
+| "bank robbery" | three crime titles; "The Broken Code" (hackers draining a crypto exchange) by meaning only |
+| Search latency | ~20 ms warm (first query 134 ms) |
+| New user | "Trending today" (rebuilt from the topic's history: the new consumer group read it from the start) |
+| After 30 min of sci-fi | 4 of 5 recommendations sci-fi |
+| After 70 more min of romance | romance and romantic comedy take over |
+| Recs killed | `/home` 200 in 57 ms, every row but "For you" |
+
+Tests: search against real pgvector and the real model (7), taste maths
+(4), recs against real Kafka and Redis with a fake catalog whose
+embeddings are known (6), home with recs slow or down (2), gateway keeping
+`/titles/nearest` and `/titles/{id}/embedding` internal (1). Switching off
+each safeguard makes a test fail: apply-once check, excluding watched
+titles, time decay, embedding time limit, embedding cap, re-embedding on
+edit.
+
+Where it's weak, measured rather than hidden: one-word queries ("heist")
+embed poorly, so the meaning half adds noise; and keyword matches in a
+title's name can outrank better meaning matches ("cosmic voyage" puts a
+cruise-ship thriller called *The Quiet Voyage* first). Weighting the two
+lists, or a re-ranker, would be the next step.
+
 ## Run it
 
 ```
@@ -168,6 +220,7 @@ java -jar catalog-service/target/catalog-service-0.1.0-SNAPSHOT.jar   # :8181
 java -jar user-service/target/user-service-0.1.0-SNAPSHOT.jar         # :8182
 java -jar playback-service/target/playback-service-0.1.0-SNAPSHOT.jar # :8183
 java -jar history-service/target/history-service-0.1.0-SNAPSHOT.jar   # :8184
+java -jar recs-service/target/recs-service-0.1.0-SNAPSHOT.jar         # :8186
 java -jar home-service/target/home-service-0.1.0-SNAPSHOT.jar         # :8185
 java -jar gateway/target/gateway-0.1.0-SNAPSHOT.jar                   # :8180, the only public one
 
@@ -177,6 +230,8 @@ curl -H 'Content-Type: application/json' \
 curl -H 'Content-Type: application/json' \
      -d '{"email":"me@example.com","password":"a-good-password"}' localhost:8180/auth/login
 curl -H "Authorization: Bearer <token>" localhost:8180/titles/1
+curl -H "Authorization: Bearer <token>" 'localhost:8180/search?q=lost+in+space'
+curl -H "Authorization: Bearer <token>" localhost:8180/recs/for-you
 
 mvn test                                         # needs Docker running
 
@@ -198,11 +253,12 @@ open http://localhost:9090/alerts   # Prometheus: SLO alerts
 ```
 auth-common/       JWT issue and verify, shared
 gateway/           entry point: JWT check, rate limits, routing, timeouts
-catalog-service/   titles, Redis cache-aside with stampede protection
+catalog-service/   titles, Redis cache-aside with stampede protection; hybrid search (pgvector + full-text)
 user-service/      accounts, BCrypt, login
 events-common/     Kafka event types
 playback-service/  sessions in Redis, publishes playback events
 history-service/   idempotent consumer: continue watching, watch time
+recs-service/      live recommendations: taste vectors from playback events, in Redis
 home-service/      home page: parallel rows, deadline, breakers, bulkheads, fallbacks
 infra/             docker-compose for Postgres, Redis, Kafka, Jaeger, Prometheus, Grafana;
                    Prometheus SLO rules and alerts, Grafana dashboard

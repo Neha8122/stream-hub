@@ -28,6 +28,14 @@ public class CatalogService {
         return repository.findByGenre(genre, Math.min(limit, 100));
     }
 
+    public Optional<float[]> embedding(long id) {
+        return repository.embedding(id);
+    }
+
+    public List<Title> nearest(float[] vector, List<Long> exclude, int limit) {
+        return titles(repository.nearest(vector, Math.min(limit, 50), exclude.stream().limit(1000).toList()));
+    }
+
     public Title create(Title t) {
         long id = repository.insert(t);
         return new Title(id, t.name(), t.genres(), t.releaseYear(), t.durationMinutes(), t.description());

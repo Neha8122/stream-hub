@@ -21,6 +21,10 @@ catalog:
     fresh-for: 5m          # after this an entry is stale: served, but one request refreshes it
     keep-for: 1h           # Redis TTL: how long a stale copy stays usable
     missing-for: 30s       # how long "this id doesn't exist" is remembered
+  search:
+    embed-timeout: 150ms           # past this, search answers with keyword results only
+    max-concurrent-embeddings: 8   # model calls in flight; more searches than this skip the meaning half
+    index-every: 5s                # how often new or edited titles are embedded
 
 management:
   endpoints:
