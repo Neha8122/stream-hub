@@ -1,0 +1,28 @@
+server:
+  port: 8180
+
+spring:
+  application:
+    name: gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+auth:
+  jwt-secret: ${JWT_SECRET:dev-only-secret-change-me-at-least-32-bytes}
+
+routes:
+  catalog: ${CATALOG_URL:http://localhost:8181}
+  users: ${USERS_URL:http://localhost:8182}
+  timeout-ms: 2000          # a backend slower than this gets a 504, not a hung client
+
+limits:
+  per-user-per-second: 50   # steady rate; bursts up to 2x
+  login-per-ip-per-second: 5
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus

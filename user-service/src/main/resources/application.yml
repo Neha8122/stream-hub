@@ -1,0 +1,21 @@
+server:
+  port: 8182
+
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: ${USERS_DB_URL:jdbc:postgresql://localhost:5432/users}
+    username: ${DB_USER:streamhub}
+    password: ${DB_PASSWORD:streamhub}
+
+auth:
+  # Shared with the gateway, which checks every token. Override in any real deployment.
+  jwt-secret: ${JWT_SECRET:dev-only-secret-change-me-at-least-32-bytes}
+  token-lifetime: 1h
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
