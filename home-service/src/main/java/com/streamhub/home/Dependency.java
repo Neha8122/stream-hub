@@ -42,7 +42,13 @@ public final class Dependency {
     private final CircuitBreaker breaker;
     private final Retry retry;
 
-    public Dependency(Settings s, CircuitBreakerRegistry breakers, BulkheadRegistry bulkheads, RetryRegistry retries) {
+    /**
+     * @param http Spring's RestClient.Builder: it's instrumented, so every call
+     *             gets a span and carries the trace id in a traceparent header.
+     *             A builder made with RestClient.builder() would send neither.
+     */
+    public Dependency(Settings s, RestClient.Builder http, CircuitBreakerRegistry breakers,
+                      BulkheadRegistry bulkheads, RetryRegistry retries) {
         this.name = s.name();
         // HTTP/1.1: the JDK client otherwise tries to upgrade plain-HTTP
         // connections to HTTP/2 (h2c) on first use, an extra round trip that
@@ -52,7 +58,7 @@ public final class Dependency {
                 .connectTimeout(Duration.ofMillis(200))
                 .build());
         factory.setReadTimeout(s.timeout());
-        this.http = RestClient.builder().baseUrl(s.url()).requestFactory(factory).build();
+        this.http = http.clone().baseUrl(s.url()).requestFactory(factory).build();
 
         // At most maxConcurrent calls in flight; beyond that, fail at once.
         this.bulkhead = bulkheads.bulkhead(name, BulkheadConfig.custom()

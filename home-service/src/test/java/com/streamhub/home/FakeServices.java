@@ -24,6 +24,8 @@ final class FakeServices {
         final AtomicInteger requests = new AtomicInteger();
         final AtomicInteger inFlight = new AtomicInteger();
         final AtomicInteger maxInFlight = new AtomicInteger();
+        /** The traceparent header of every request, in arrival order. */
+        final java.util.List<String> traceparents = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         void reset() {
             delayMs = 0;
@@ -32,6 +34,7 @@ final class FakeServices {
             requests.set(0);
             inFlight.set(0);
             maxInFlight.set(0);
+            traceparents.clear();
         }
     }
 
@@ -83,6 +86,8 @@ final class FakeServices {
 
     private static void serve(HttpExchange ex, Behaviour b, String body) throws IOException {
         b.requests.incrementAndGet();
+        String tp = ex.getRequestHeaders().getFirst("traceparent");
+        b.traceparents.add(tp == null ? "-" : tp);
         int now = b.inFlight.incrementAndGet();
         b.maxInFlight.accumulateAndGet(now, Math::max);
         try {

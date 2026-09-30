@@ -14,7 +14,7 @@ assistant that keeps working when the AI doesn't.
 | 1 | Catalog + user + gateway, Postgres, Redis cache | ✅ |
 | 2 | Playback + Kafka + idempotent consumers, DLQ | ✅ |
 | 3 | Resilience: timeouts, circuit breakers, bulkheads, rate limits | ✅ |
-| 4 | Observability: OpenTelemetry, Prometheus, Grafana, SLOs | ⬜ |
+| 4 | Observability: OpenTelemetry, Prometheus, Grafana, SLOs | ✅ |
 | 5 | AI: embeddings, hybrid search, live-feature recommendations | ⬜ |
 | 6 | Assistant: LLM behind a breaker, semantic cache, guardrails | ⬜ |
 | 7 | Kubernetes, autoscaling, load tests, measured results | ⬜ |
@@ -118,6 +118,47 @@ test with a slow-but-in-timeout dependency does. And a flaky-looking test
 failure turned out to be one test class stopping a fake server another
 class still used; the fakes are now shared and never stopped.
 
+## Observability
+
+Every service exports traces over OTLP to Jaeger and metrics to Prometheus;
+Grafana has one dashboard (latency, errors, degraded rows, breakers, cache,
+consumer lag, error budget). Trace ids ride in the W3C `traceparent` header
+over HTTP and in a Kafka message header, and appear in log lines as
+`[traceId-spanId]`.
+
+Two SLOs for the home page, each 99% over 30 days:
+
+| SLO | Good event |
+|---|---|
+| Fast | `/home` answered 2xx in under 300 ms |
+| Complete | a page with no degraded rows |
+
+The second exists because of the resilience work: with history down, pages
+still return 200 in ~20 ms, so a latency SLO alone says everything is fine.
+Alerts are multi-window burn rates (page at 14.4x over 1 h and 5 min, ticket
+at 6x over 6 h and 30 min), written as Prometheus recording and alert rules
+in `infra/prometheus/slo-rules.yml`.
+
+Live, with all six services running on the host:
+
+| Check | Result |
+|---|---|
+| One `/home` request | one trace, 11 spans: gateway, home, history, catalog |
+| Playback start | one trace across HTTP and Kafka: gateway → playback (send) → history (receive) |
+| Prometheus | all 6 services scraped |
+| History killed under ~20 pages/s | fast SLO unaffected; complete SLO burn rate 12x at 10 s, 56x at 80 s; paging alert fired 80 s after the kill (1 min `for`) |
+| Log line for a degraded page | `WARN ... [64d2...e951-f315...9dc76] HomeService: home page degraded: [history]` |
+
+A test sends `/home` with a known trace id and checks that all downstream
+calls carry it. Two bugs each make it fail: running rows on a thread pool
+without copying the trace context (5 different trace ids), and building the
+HTTP client with `RestClient.builder()` instead of Spring's instrumented
+builder (no `traceparent` sent at all).
+
+Found on the way: the "complete" ratio read "no data" instead of 0 while
+all was well, because the `complete="false"` counter didn't exist until the
+first bad page. Both counters are now registered at startup.
+
 ## Run it
 
 ```
@@ -138,6 +179,10 @@ curl -H 'Content-Type: application/json' \
 curl -H "Authorization: Bearer <token>" localhost:8180/titles/1
 
 mvn test                                         # needs Docker running
+
+open http://localhost:16686   # Jaeger: traces
+open http://localhost:3000    # Grafana: the stream-hub dashboard
+open http://localhost:9090/alerts   # Prometheus: SLO alerts
 ```
 
 ## Design
@@ -146,6 +191,7 @@ mvn test                                         # needs Docker running
 - [Catalog cache LLD](docs/lld-catalog-cache.html): cache-aside, stampede protection
 - [Playback events LLD](docs/lld-playback-events.html): Kafka, idempotent consumer, DLT
 - [Resilience LLD](docs/lld-resilience.html): deadline, circuit breaker, bulkhead, retry, fallback
+- [Observability LLD](docs/lld-observability.html): traces across services and Kafka, metrics, SLOs, burn-rate alerts
 
 ## Layout
 
@@ -158,6 +204,7 @@ events-common/     Kafka event types
 playback-service/  sessions in Redis, publishes playback events
 history-service/   idempotent consumer: continue watching, watch time
 home-service/      home page: parallel rows, deadline, breakers, bulkheads, fallbacks
-infra/             docker-compose for Postgres, Redis and Kafka
+infra/             docker-compose for Postgres, Redis, Kafka, Jaeger, Prometheus, Grafana;
+                   Prometheus SLO rules and alerts, Grafana dashboard
 docs/              design pages
 ```

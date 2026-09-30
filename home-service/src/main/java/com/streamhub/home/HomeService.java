@@ -12,6 +12,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import io.micrometer.context.ContextExecutorService;
+import io.micrometer.context.ContextSnapshotFactory;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Builds the home page from its rows, all fetched at once, under one
@@ -20,6 +25,8 @@ import java.util.concurrent.TimeUnit;
  * fails.
  */
 public final class HomeService {
+
+    private static final Logger log = LoggerFactory.getLogger(HomeService.class);
 
     /** Where a row's content came from. */
     public enum Source { LIVE, STALE, UNAVAILABLE }
@@ -35,11 +42,26 @@ public final class HomeService {
     private final Dependency catalog;
     private final List<String> genres;
     private final Duration deadline;
-    private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
+    /**
+     * Rows run on their own virtual threads. The wrapper copies the caller's
+     * context (the current trace span) onto each task: without it every row's
+     * calls would start a new, orphaned trace, and a slow page couldn't be
+     * traced end to end.
+     */
+    private final ExecutorService workers = ContextExecutorService.wrap(
+            Executors.newVirtualThreadPerTaskExecutor(),
+            ContextSnapshotFactory.builder().build()::captureAll);
+    private final MeterRegistry metrics;
     /** Last good copy of each shared (non-personal) row, served when catalog is down. */
     private final Map<String, Row> lastGood = new ConcurrentHashMap<>();
 
-    public HomeService(Dependency history, Dependency catalog, List<String> genres, Duration deadline) {
+    public HomeService(Dependency history, Dependency catalog, List<String> genres, Duration deadline,
+                       MeterRegistry metrics) {
+        this.metrics = metrics;
+        // Both series exist from the start: a ratio over a missing
+        // complete="false" series is "no data", not 0, while all is well.
+        metrics.counter("home.pages", "complete", "true");
+        metrics.counter("home.pages", "complete", "false");
         this.history = history;
         this.catalog = catalog;
         this.genres = genres;
@@ -69,6 +91,15 @@ public final class HomeService {
             if (o.row() != null) {
                 page.add(o.row());
             }
+        }
+        // For the "complete" SLO: a 200 that served stale rows is not a good page.
+        metrics.counter("home.pages", "complete", Boolean.toString(degraded.isEmpty())).increment();
+        if (!degraded.isEmpty()) {
+            // Carries [traceId-spanId] (Boot's log pattern), so the line leads to the trace.
+            log.warn("home page degraded: {}", degraded);
+        }
+        for (String d : degraded) {
+            metrics.counter("home.degraded", "dependency", d).increment();
         }
         return new Home(page, degraded, (System.nanoTime() - start) / 1_000_000);
     }

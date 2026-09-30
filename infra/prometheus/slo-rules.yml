@@ -1,0 +1,60 @@
+# SLOs for the home page (docs/lld-observability.html §3). Both target 99%,
+# so the error budget is 1% of requests and burn rate = error ratio / 0.01.
+#
+#   fast:     /home answered 2xx in under 300 ms
+#   complete: the page had no degraded rows (a 200 with stale rows is not "good")
+#
+# Alerts use two windows each (Google SRE workbook, multi-window burn rate):
+# the long window proves the problem is real, the short one that it's still
+# happening, so the alert clears soon after the problem does.
+groups:
+  - name: slo-home-fast
+    rules:
+      - record: slo:home_fast:error_ratio_5m
+        expr: 1 - (sum(rate(http_server_requests_seconds_bucket{application="home-service",uri="/home",status=~"2..",le="0.3"}[5m]))
+                   / sum(rate(http_server_requests_seconds_count{application="home-service",uri="/home"}[5m])))
+      - record: slo:home_fast:error_ratio_30m
+        expr: 1 - (sum(rate(http_server_requests_seconds_bucket{application="home-service",uri="/home",status=~"2..",le="0.3"}[30m]))
+                   / sum(rate(http_server_requests_seconds_count{application="home-service",uri="/home"}[30m])))
+      - record: slo:home_fast:error_ratio_1h
+        expr: 1 - (sum(rate(http_server_requests_seconds_bucket{application="home-service",uri="/home",status=~"2..",le="0.3"}[1h]))
+                   / sum(rate(http_server_requests_seconds_count{application="home-service",uri="/home"}[1h])))
+      - record: slo:home_fast:error_ratio_6h
+        expr: 1 - (sum(rate(http_server_requests_seconds_bucket{application="home-service",uri="/home",status=~"2..",le="0.3"}[6h]))
+                   / sum(rate(http_server_requests_seconds_count{application="home-service",uri="/home"}[6h])))
+
+  - name: slo-home-complete
+    rules:
+      - record: slo:home_complete:error_ratio_5m
+        expr: sum(rate(home_pages_total{complete="false"}[5m])) / sum(rate(home_pages_total[5m]))
+      - record: slo:home_complete:error_ratio_30m
+        expr: sum(rate(home_pages_total{complete="false"}[30m])) / sum(rate(home_pages_total[30m]))
+      - record: slo:home_complete:error_ratio_1h
+        expr: sum(rate(home_pages_total{complete="false"}[1h])) / sum(rate(home_pages_total[1h]))
+      - record: slo:home_complete:error_ratio_6h
+        expr: sum(rate(home_pages_total{complete="false"}[6h])) / sum(rate(home_pages_total[6h]))
+
+  - name: slo-alerts
+    rules:
+      # 14.4x burn: 2% of the 30-day budget gone in one hour. Wake someone up.
+      - alert: HomeFastBudgetBurn
+        expr: slo:home_fast:error_ratio_1h > 14.4 * 0.01 and slo:home_fast:error_ratio_5m > 14.4 * 0.01
+        for: 1m
+        labels: {severity: page, slo: fast}
+        annotations:
+          summary: "/home is slow or failing: {{ $value | humanizePercentage }} of pages missed 300 ms over the last 5 min"
+      - alert: HomeCompleteBudgetBurn
+        expr: slo:home_complete:error_ratio_1h > 14.4 * 0.01 and slo:home_complete:error_ratio_5m > 14.4 * 0.01
+        for: 1m
+        labels: {severity: page, slo: complete}
+        annotations:
+          summary: "home pages are degraded: {{ $value | humanizePercentage }} served stale or missing rows over the last 5 min"
+      # 6x burn: a slow leak. Open a ticket, don't page.
+      - alert: HomeFastBudgetLeak
+        expr: slo:home_fast:error_ratio_6h > 6 * 0.01 and slo:home_fast:error_ratio_30m > 6 * 0.01
+        for: 5m
+        labels: {severity: ticket, slo: fast}
+      - alert: HomeCompleteBudgetLeak
+        expr: slo:home_complete:error_ratio_6h > 6 * 0.01 and slo:home_complete:error_ratio_30m > 6 * 0.01
+        for: 5m
+        labels: {severity: ticket, slo: complete}

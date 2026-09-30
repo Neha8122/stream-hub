@@ -46,19 +46,22 @@ public class HomeApplication {
 
     @Bean Dependency history(@Value("${home.history.url}") String url, @Value("${home.history.timeout}") Duration timeout,
                              @Value("${home.history.max-concurrent}") int max, @Value("${home.breaker.open-for}") Duration openFor,
+                             org.springframework.web.client.RestClient.Builder http,
                              CircuitBreakerRegistry b, BulkheadRegistry h, RetryRegistry r) {
-        return new Dependency(new Dependency.Settings("history", url, timeout, max, openFor), b, h, r);
+        return new Dependency(new Dependency.Settings("history", url, timeout, max, openFor), http, b, h, r);
     }
 
     @Bean Dependency catalog(@Value("${home.catalog.url}") String url, @Value("${home.catalog.timeout}") Duration timeout,
                              @Value("${home.catalog.max-concurrent}") int max, @Value("${home.breaker.open-for}") Duration openFor,
+                             org.springframework.web.client.RestClient.Builder http,
                              CircuitBreakerRegistry b, BulkheadRegistry h, RetryRegistry r) {
-        return new Dependency(new Dependency.Settings("catalog", url, timeout, max, openFor), b, h, r);
+        return new Dependency(new Dependency.Settings("catalog", url, timeout, max, openFor), http, b, h, r);
     }
 
     @Bean HomeService homeService(@Qualifier("history") Dependency history, @Qualifier("catalog") Dependency catalog,
-                                  @Value("${home.genres}") String genres, @Value("${home.deadline}") Duration deadline) {
-        return new HomeService(history, catalog, Arrays.asList(genres.split(",")), deadline);
+                                  @Value("${home.genres}") String genres, @Value("${home.deadline}") Duration deadline,
+                                  MeterRegistry metrics) {
+        return new HomeService(history, catalog, Arrays.asList(genres.split(",")), deadline, metrics);
     }
 
     private final java.util.function.Supplier<HomeService> home;
