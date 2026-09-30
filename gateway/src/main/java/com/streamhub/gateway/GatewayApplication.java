@@ -68,6 +68,7 @@ public class GatewayApplication {
                         @Value("${routes.users}") String users,
                         @Value("${routes.playback}") String playback,
                         @Value("${routes.history}") String history,
+                        @Value("${routes.home}") String home,
                         @Value("${routes.timeout-ms}") int timeoutMs,
                         // Explicit qualifiers: @Primary would otherwise win over the
                         // parameter names, and login would silently get the lax limiter.
@@ -92,6 +93,10 @@ public class GatewayApplication {
                         .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
                         .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)
                         .uri(playback))
+.route("home", r -> r.path("/home")
+                        .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
+                        .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)
+                        .uri(home))
                 .route("history", r -> r.path("/history/**")
                         .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
                         .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)

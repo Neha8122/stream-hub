@@ -26,6 +26,12 @@ public class TitleController {
         return ResponseEntity.of(catalog.title(id));
     }
 
+    /** One call for many titles: GET /titles/batch?ids=3,7,9 */
+    @GetMapping("/batch")
+    public List<Title> batch(@RequestParam List<Long> ids) {
+        return catalog.titles(ids);
+    }
+
     @GetMapping
     public List<Title> byGenre(@RequestParam String genre, @RequestParam(defaultValue = "20") int limit) {
         return catalog.byGenre(genre, limit);

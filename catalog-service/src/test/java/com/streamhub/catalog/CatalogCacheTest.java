@@ -89,6 +89,8 @@ class CatalogCacheTest {
     void httpApi() {
         assertEquals(HttpStatus.OK, http.getForEntity("/titles/1", Title.class).getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND, http.getForEntity("/titles/424242", String.class).getStatusCode());
+        Title[] some = http.getForObject("/titles/batch?ids=3,1,999999", Title[].class);
+        assertEquals(List.of(3L, 1L), java.util.Arrays.stream(some).map(Title::id).toList(), "in order, unknown left out");
         Title[] drama = http.getForObject("/titles?genre=drama&limit=5", Title[].class);
         assertTrue(drama.length > 0 && drama.length <= 5);
         for (Title d : drama) {

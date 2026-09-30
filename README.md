@@ -13,7 +13,7 @@ assistant that keeps working when the AI doesn't.
 |---|---|---|
 | 1 | Catalog + user + gateway, Postgres, Redis cache | ✅ |
 | 2 | Playback + Kafka + idempotent consumers, DLQ | ✅ |
-| 3 | Resilience: timeouts, circuit breakers, bulkheads, rate limits | ⬜ |
+| 3 | Resilience: timeouts, circuit breakers, bulkheads, rate limits | ✅ |
 | 4 | Observability: OpenTelemetry, Prometheus, Grafana, SLOs | ⬜ |
 | 5 | AI: embeddings, hybrid search, live-feature recommendations | ⬜ |
 | 6 | Assistant: LLM behind a breaker, semantic cache, guardrails | ⬜ |
@@ -88,6 +88,36 @@ message blocking its whole partition; and dead-letter producers built from
 `KafkaProperties` ignored the test container's address. Both fixed (explicit
 DLT name, producers built from Spring's own producer factory).
 
+## Resilient home page
+
+`GET /home` is built from history (continue watching) and catalog (three
+genre rows), fetched in parallel under a 300 ms page deadline. Every call
+goes through a bulkhead, a circuit breaker and one retry, with its own
+timeout. A failed or late row falls back (last good copy, or empty) and the
+response lists what was degraded. The page itself never fails.
+
+Live, with real processes, killing services with `kill -9` while calling
+`/home` through the gateway:
+
+| Situation | Response | Rows |
+|---|---|---|
+| All up | 200 in 17 ms | all live |
+| History killed | 200 in 56 ms | continue watching unavailable, genre rows live |
+| History and catalog killed | 200 in 66 ms | genre rows served stale (last good copy) |
+| Both restarted, 6 s later | 200 in 78 ms | all live again (breakers closed after trial calls) |
+
+Chaos tests with fake dependencies that can be made slow, broken or flaky
+(7 tests). Switching off each tool makes its test fail: no bulkhead → history
+gets more than 20 calls at once; no breaker → a broken history keeps being
+called; no retry → a single blip degrades a row; no page deadline → a page
+takes 862 ms instead of ~200.
+
+Found on the way: the first page-deadline test couldn't tell whether the
+deadline existed, because each call's own timeout already bounded it. A new
+test with a slow-but-in-timeout dependency does. And a flaky-looking test
+failure turned out to be one test class stopping a fake server another
+class still used; the fakes are now shared and never stopped.
+
 ## Run it
 
 ```
@@ -97,6 +127,7 @@ java -jar catalog-service/target/catalog-service-0.1.0-SNAPSHOT.jar   # :8181
 java -jar user-service/target/user-service-0.1.0-SNAPSHOT.jar         # :8182
 java -jar playback-service/target/playback-service-0.1.0-SNAPSHOT.jar # :8183
 java -jar history-service/target/history-service-0.1.0-SNAPSHOT.jar   # :8184
+java -jar home-service/target/home-service-0.1.0-SNAPSHOT.jar         # :8185
 java -jar gateway/target/gateway-0.1.0-SNAPSHOT.jar                   # :8180, the only public one
 
 curl -H 'Content-Type: application/json' \
@@ -114,6 +145,7 @@ mvn test                                         # needs Docker running
 - [HLD](docs/hld.html): services, events, scale, APIs, deep dives, build order
 - [Catalog cache LLD](docs/lld-catalog-cache.html): cache-aside, stampede protection
 - [Playback events LLD](docs/lld-playback-events.html): Kafka, idempotent consumer, DLT
+- [Resilience LLD](docs/lld-resilience.html): deadline, circuit breaker, bulkhead, retry, fallback
 
 ## Layout
 
@@ -125,6 +157,7 @@ user-service/      accounts, BCrypt, login
 events-common/     Kafka event types
 playback-service/  sessions in Redis, publishes playback events
 history-service/   idempotent consumer: continue watching, watch time
+home-service/      home page: parallel rows, deadline, breakers, bulkheads, fallbacks
 infra/             docker-compose for Postgres, Redis and Kafka
 docs/              design pages
 ```

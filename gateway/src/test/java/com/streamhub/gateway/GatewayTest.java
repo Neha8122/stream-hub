@@ -54,6 +54,7 @@ class GatewayTest {
         r.add("routes.users", () -> url);
         r.add("routes.playback", () -> url);
         r.add("routes.history", () -> url);
+        r.add("routes.home", () -> url);
         r.add("auth.jwt-secret", () -> SECRET);
     }
 

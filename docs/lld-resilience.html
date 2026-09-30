@@ -1,0 +1,208 @@
+<title>Resilience LLD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column; each diagram in its own scroll box, tables and notes under it. Same system as the other design pages. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --fg: #18202b;
+  --muted: #5d6878;
+  --line: #c9d0da;
+  --hot: #b45309;
+  --hot-tint: #fdf1e3;
+  --rep: #0f766e;
+  --rep-tint: #e3f4f1;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #161d27; --fg: #e3e8ef; --muted: #98a3b3;
+    --line: #2f3a48; --hot: #f59e0b; --hot-tint: #2a2013; --rep: #2dd4bf; --rep-tint: #11282a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #161d27; --fg: #e3e8ef; --muted: #98a3b3;
+  --line: #2f3a48; --hot: #f59e0b; --hot-tint: #2a2013; --rep: #2dd4bf; --rep-tint: #11282a;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 56px; display: grid; gap: 44px; }
+header { display: grid; gap: 6px; }
+h1 { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 18px; font-weight: 600; margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; font-weight: 600; margin: 0; }
+p { margin: 0; max-width: 75ch; }
+.lede { color: var(--muted); max-width: 70ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 0.9em; }
+section { display: grid; gap: 14px; min-width: 0; }
+figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; padding: 8px; }
+.board svg { display: block; width: 100%; min-width: 960px; height: auto; color: var(--fg); }
+figcaption { color: var(--muted); font-size: 14px; max-width: 85ch; }
+
+.box { fill: var(--surface); stroke: var(--fg); stroke-width: 1.4; }
+.box-hot { fill: var(--hot-tint); stroke: var(--hot); stroke-width: 1.8; }
+.box-rep { fill: var(--rep-tint); stroke: var(--rep); stroke-width: 1.6; }
+.box-dim { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; }
+.hdr { fill: var(--bg); stroke: var(--fg); stroke-width: 1.4; }
+.sep { stroke: var(--line); stroke-width: 1; }
+.t { fill: var(--fg); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.s { fill: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.m { fill: var(--fg); font-family: var(--font-mono); font-size: 12px; }
+.mb { fill: var(--fg); font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
+.md { fill: var(--muted); font-family: var(--font-mono); font-size: 11.5px; }
+.lbl-hot { fill: var(--hot); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+.lbl-rep { fill: var(--rep); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+.a-fg { stroke: var(--fg); stroke-width: 1.4; fill: none; }
+.a-hot { stroke: var(--hot); stroke-width: 2; fill: none; }
+.a-rep { stroke: var(--rep); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+.a-dim { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
+.h-fg { fill: var(--fg); } .h-hot { fill: var(--hot); } .h-rep { fill: var(--rep); } .h-dim { fill: var(--muted); }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; }
+td.n, th.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+tr.ask td:first-child { color: var(--hot); font-weight: 600; }
+tr.bid td:first-child { color: var(--rep); font-weight: 600; }
+tr.gone td { color: var(--muted); text-decoration: line-through; }
+tr.mid td { color: var(--muted); font-size: 12.5px; text-align: center; border-bottom: 1px dashed var(--line); }
+.chip { display: inline-block; font-family: var(--font-mono); font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--hot-tint); color: var(--hot); }
+ol.flow { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 8px; counter-reset: st; }
+ol.flow li { counter-increment: st; display: grid; grid-template-columns: 26px 1fr; gap: 6px; align-items: baseline; }
+ol.flow li::before { content: counter(st); font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--hot); }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 13px; line-height: 1.6; color: var(--fg); }
+.tree { font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">stream-hub · home service · step 3</span>
+    <h1>Resilience LLD</h1>
+    <p class="lede">The home page is built from several services at once. Any of them can be slow or down at any moment. The rule: the page always loads, fast, with whatever is healthy, and a failing dependency is left alone to recover instead of being hammered.</p>
+  </header>
+
+  <section>
+    <h2>1 · One home page, several dependencies, one deadline</h2>
+    <figure>
+      <div class="board">
+        <svg viewBox="0 0 1200 300" role="img" aria-label="A GET /home request fans out in parallel to the history service for continue watching and to the catalog service for three rows. Each call goes through a bulkhead, a circuit breaker and a retry, with its own timeout. The whole page has a 300 millisecond deadline. A row that fails or is late falls back to its last good copy or is left out, and the response lists what was degraded.">
+          <defs>
+            <marker id="r1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-fg" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="r1h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-hot" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="r1d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-dim" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+          <rect class="box-hot" x="20" y="110" width="170" height="80" rx="6"/>
+          <text class="t" x="105" y="140" text-anchor="middle">GET /home</text>
+          <text class="lbl-hot" x="105" y="162" text-anchor="middle">deadline 300 ms</text>
+
+          <line class="a-hot" x1="190" y1="150" x2="230" y2="150"/>
+          <line class="a-hot" x1="230" y1="60" x2="230" y2="240"/>
+          <line class="a-hot" x1="230" y1="60" x2="267" y2="60" marker-end="url(#r1h)"/>
+          <line class="a-hot" x1="230" y1="240" x2="267" y2="240" marker-end="url(#r1h)"/>
+          <text class="lbl-hot" x="238" y="150">in parallel</text>
+
+          <rect class="box" x="270" y="24" width="420" height="72" rx="6"/>
+          <text class="t" x="286" y="48">History client · continue watching</text>
+          <text class="m" x="286" y="70">bulkhead 20 → breaker → retry 1 → timeout 150 ms</text>
+          <text class="md" x="286" y="88">fallback: empty row, marked degraded</text>
+
+          <rect class="box" x="270" y="204" width="420" height="72" rx="6"/>
+          <text class="t" x="286" y="228">Catalog client · 3 rows</text>
+          <text class="m" x="286" y="250">bulkhead 30 → breaker → retry 1 → timeout 200 ms</text>
+          <text class="md" x="286" y="268">fallback: last good copy of the row, marked stale</text>
+
+          <line class="a-fg" x1="690" y1="60" x2="777" y2="60" marker-end="url(#r1)"/>
+          <line class="a-fg" x1="690" y1="240" x2="777" y2="240" marker-end="url(#r1)"/>
+          <rect class="box-dim" x="780" y="30" width="170" height="60" rx="6"/>
+          <text class="t" x="865" y="56" text-anchor="middle">history-service</text>
+          <text class="s" x="865" y="76" text-anchor="middle">slow? down?</text>
+          <rect class="box-dim" x="780" y="210" width="170" height="60" rx="6"/>
+          <text class="t" x="865" y="236" text-anchor="middle">catalog-service</text>
+          <text class="s" x="865" y="256" text-anchor="middle">slow? down?</text>
+
+          <rect class="box-rep" x="990" y="100" width="190" height="100" rx="6"/>
+          <text class="t" x="1006" y="124">Response</text>
+          <text class="m" x="1006" y="146">rows: live / stale</text>
+          <text class="m" x="1006" y="166">degraded: [history]</text>
+          <text class="md" x="1006" y="186">always 200, always fast</text>
+          <polyline class="a-dim" points="950,60 970,60 970,130 987,130" marker-end="url(#r1d)"/>
+          <polyline class="a-dim" points="950,240 970,240 970,170 987,170" marker-end="url(#r1d)"/>
+        </svg>
+      </div>
+      <figcaption>Each call's timeout is the smaller of its own limit and what's left of the page's 300 ms. Rows are fetched at the same time, so the page takes as long as its slowest healthy row, not the sum.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>2 · The circuit breaker: stop calling what's broken</h2>
+    <figure>
+      <div class="board">
+        <svg viewBox="0 0 1200 220" role="img" aria-label="Closed: calls go through and failures are counted over the last 20 calls. When at least half of at least 10 calls failed or were slow, it opens. Open: calls fail immediately without touching the dependency, for 5 seconds. Then half-open: 3 trial calls; if they succeed it closes, if they fail it opens again.">
+          <defs>
+            <marker id="r2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-fg" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="r2h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-hot" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+          <rect class="box-rep" x="60" y="70" width="240" height="80" rx="8"/>
+          <text class="t" x="180" y="100" text-anchor="middle">CLOSED</text>
+          <text class="s" x="180" y="120" text-anchor="middle">calls go through; last 20 counted</text>
+          <rect class="box-hot" x="480" y="70" width="240" height="80" rx="8"/>
+          <text class="t" x="600" y="100" text-anchor="middle">OPEN</text>
+          <text class="s" x="600" y="120" text-anchor="middle">fail at once, dependency untouched</text>
+          <rect class="box" x="900" y="70" width="240" height="80" rx="8"/>
+          <text class="t" x="1020" y="100" text-anchor="middle">HALF-OPEN</text>
+          <text class="s" x="1020" y="120" text-anchor="middle">3 trial calls</text>
+
+          <line class="a-hot" x1="300" y1="95" x2="477" y2="95" marker-end="url(#r2h)"/>
+          <text class="lbl-hot" x="390" y="86" text-anchor="middle">≥ 50% of ≥ 10 calls failed or slow</text>
+          <line class="a-fg" x1="720" y1="95" x2="897" y2="95" marker-end="url(#r2)"/>
+          <text class="md" x="810" y="86" text-anchor="middle">after 5 s</text>
+          <polyline class="a-fg" points="1020,150 1020,190 180,190 180,153" marker-end="url(#r2)"/>
+          <text class="md" x="600" y="208" text-anchor="middle">trial calls succeed → back to normal</text>
+          <polyline class="a-hot" points="960,70 960,40 660,40 660,67" marker-end="url(#r2h)"/>
+          <text class="lbl-hot" x="810" y="32" text-anchor="middle">a trial call fails → open again</text>
+        </svg>
+      </div>
+      <figcaption>An open breaker does two jobs: the caller gets its fallback in microseconds instead of waiting for a timeout, and the struggling service gets breathing room instead of a queue of retries.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>3 · The other three tools</h2>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Tool</th><th>What it prevents</th><th>Setting here</th></tr></thead>
+        <tbody>
+          <tr><td><b>Timeout</b></td><td>a slow dependency holding a request open forever</td><td>history 150 ms, catalog 200 ms, capped by the page deadline</td></tr>
+          <tr><td><b>Bulkhead</b></td><td>one slow dependency using up every thread, so even healthy rows can't be served. Named after the walls that stop one flooded compartment sinking a ship</td><td>at most 20 calls in flight to history, 30 to catalog; the rest get their fallback at once</td></tr>
+          <tr><td><b>Retry</b></td><td>a single dropped connection or brief blip failing the row</td><td>1 retry after 30–60 ms (with jitter), only for reads, never when the breaker is open, never past the deadline</td></tr>
+          <tr><td><b>Fallback</b></td><td>an error page</td><td>catalog rows: last good copy; continue watching: empty. The response says what was degraded</td></tr>
+        </tbody>
+      </table></div>
+      <p class="lede">Order around each call: bulkhead → circuit breaker → retry → HTTP call with timeout. Retries happen inside the breaker, so a retry storm is counted as failures and opens it.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · Chaos tests (fake dependencies we can break on demand)</h2>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <tbody>
+          <tr><td>All healthy</td><td>every row live, nothing degraded</td></tr>
+          <tr><td>History takes 2 s</td><td>page still under the deadline; continue watching degraded; catalog rows live</td></tr>
+          <tr><td>History returns errors</td><td>the breaker opens and history stops receiving calls; once history heals, trial calls close it and the row comes back</td></tr>
+          <tr><td>History slow, 60 pages at once</td><td>history never has more than 20 calls in flight; every page still answers fast</td></tr>
+          <tr><td>Catalog fails once</td><td>one retry, the row is live</td></tr>
+          <tr><td>Catalog down</td><td>rows served from their last good copy, marked stale</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+</div>

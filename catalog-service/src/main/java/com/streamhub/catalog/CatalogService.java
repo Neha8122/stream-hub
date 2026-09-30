@@ -19,6 +19,11 @@ public class CatalogService {
         return cache.get(id, repository::findById);
     }
 
+    /** Several titles at once, each through the cache; unknown ids are left out. */
+    public List<Title> titles(List<Long> ids) {
+        return ids.stream().limit(100).map(this::title).flatMap(java.util.Optional::stream).toList();
+    }
+
     public List<Title> byGenre(String genre, int limit) {
         return repository.findByGenre(genre, Math.min(limit, 100));
     }

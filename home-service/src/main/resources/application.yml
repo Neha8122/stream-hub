@@ -1,0 +1,29 @@
+server:
+  port: 8185
+
+spring:
+  application:
+    name: home-service
+  threads:
+    virtual:
+      enabled: true               # request threads are cheap; bulkheads still cap what we send out
+
+home:
+  deadline: 300ms                 # the whole page, however many rows
+  history:
+    url: ${HISTORY_URL:http://localhost:8184}
+    timeout: 150ms
+    max-concurrent: 20
+  catalog:
+    url: ${CATALOG_URL:http://localhost:8181}
+    timeout: 200ms
+    max-concurrent: 30
+  breaker:
+    open-for: 5s                  # how long to leave a failing dependency alone
+  genres: drama,sci-fi,comedy     # one row each
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
