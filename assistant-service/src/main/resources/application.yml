@@ -1,0 +1,62 @@
+server:
+  port: 8187
+
+spring:
+  application:
+    name: assistant-service
+  threads:
+    virtual:
+      enabled: true               # most of a request is waiting on the LLM
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 200ms
+
+assistant:
+  llm:
+    url: ${ANTHROPIC_URL:https://api.anthropic.com}
+    # Your own key only. ANTHROPIC_API_KEY is deliberately not read (see AssistantApplication).
+    # Without a key the assistant answers from search only.
+    api-key: ${STREAM_HUB_ANTHROPIC_KEY:}
+    model: ${ASSISTANT_MODEL:claude-haiku-4-5-20251001}   # small and fast: this is a chat box, not a research task
+    timeout: 8s
+    max-concurrent: 10            # LLM calls in flight; more asks than this get search results
+    open-for: 30s                 # leave a failing API alone this long
+    max-tokens: 400
+  cache:
+    # Cosine similarity (MiniLM). High on purpose: measured, "something funny set in
+    # space" vs "something scary set in space" is 0.785, above a real paraphrase
+    # ("a funny space movie", 0.731). A lower bar would serve the comedy answer to
+    # someone asking for horror. At 0.93 it catches rewordings like casing and
+    # punctuation (0.977) and never a different request.
+    similarity: 0.93
+    ttl: 1h                       # the catalog changes; answers go stale
+    max-entries: 1000
+  budget:
+    per-user-per-day: 20          # LLM calls; cache hits are free
+    global-per-day: 500           # a hard ceiling on the bill
+  catalog:
+    url: ${CATALOG_URL:http://localhost:8181}
+    timeout: 500ms
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  # --- observability (docs/lld-observability.html) ---
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,300ms,1s

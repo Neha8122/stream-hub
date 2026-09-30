@@ -17,3 +17,4 @@ scrape_configs:
           - host.docker.internal:8184   # history
           - host.docker.internal:8185   # home
           - host.docker.internal:8186   # recs
+          - host.docker.internal:8187   # assistant

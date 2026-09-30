@@ -70,6 +70,8 @@ public class GatewayApplication {
                         @Value("${routes.history}") String history,
                         @Value("${routes.home}") String home,
                         @Value("${routes.recs}") String recs,
+                        @Value("${routes.assistant}") String assistant,
+                        @Value("${routes.assistant-timeout-ms}") int assistantTimeoutMs,
                         @Value("${routes.timeout-ms}") int timeoutMs,
                         // Explicit qualifiers: @Primary would otherwise win over the
                         // parameter names, and login would silently get the lax limiter.
@@ -108,6 +110,11 @@ public class GatewayApplication {
                         .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
                         .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)
                         .uri(recs))
+                // An LLM answer takes seconds, not milliseconds: its own, longer timeout.
+                .route("assistant", r -> r.path("/assistant/**")
+                        .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
+                        .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, assistantTimeoutMs)
+                        .uri(assistant))
                 .route("home", r -> r.path("/home")
                         .filters(f -> f.requestRateLimiter(c -> c.setRateLimiter(perUser).setKeyResolver(userOrIp)))
                         .metadata(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, timeoutMs)

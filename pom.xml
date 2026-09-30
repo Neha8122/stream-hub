@@ -27,6 +27,7 @@
         <module>playback-service</module>
         <module>history-service</module>
         <module>recs-service</module>
+        <module>assistant-service</module>
         <module>home-service</module>
         <module>gateway</module>
     </modules>

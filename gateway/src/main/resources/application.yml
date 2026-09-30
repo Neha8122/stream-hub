@@ -19,7 +19,9 @@ routes:
   history: ${HISTORY_URL:http://localhost:8184}
   home: ${HOME_URL:http://localhost:8185}
   recs: ${RECS_URL:http://localhost:8186}
+  assistant: ${ASSISTANT_URL:http://localhost:8187}
   timeout-ms: 2000          # a backend slower than this gets a 504, not a hung client
+  assistant-timeout-ms: 12000   # the LLM's own limit is 8 s, plus retrieval and a retry's pause
 
 limits:
   per-user-per-second: 50   # steady rate; bursts up to 2x

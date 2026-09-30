@@ -327,6 +327,67 @@
           "legendFormat": "for-you: {{source}}"
         }
       ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Assistant: answers by mode (llm / cached / fallback / refused)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (mode, reason) (rate(assistant_answers_total[1m]))",
+          "legendFormat": "{{mode}} {{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Assistant: tokens / min and guardrail hits",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(assistant_tokens_total[1m])) * 60",
+          "legendFormat": "{{kind}} tokens/min"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (type) (rate(assistant_guardrail_total[1m])) * 60",
+          "legendFormat": "guardrail {{type}}/min"
+        }
+      ]
     }
   ]
 }

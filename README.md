@@ -16,7 +16,7 @@ assistant that keeps working when the AI doesn't.
 | 3 | Resilience: timeouts, circuit breakers, bulkheads, rate limits | ✅ |
 | 4 | Observability: OpenTelemetry, Prometheus, Grafana, SLOs | ✅ |
 | 5 | AI: embeddings, hybrid search, live-feature recommendations | ✅ |
-| 6 | Assistant: LLM behind a breaker, semantic cache, guardrails | ⬜ |
+| 6 | Assistant: LLM behind a breaker, semantic cache, guardrails | ✅ |
 | 7 | Kubernetes, autoscaling, load tests, measured results | ⬜ |
 
 ## Catalog cache
@@ -211,6 +211,53 @@ title's name can outrank better meaning matches ("cosmic voyage" puts a
 cruise-ship thriller called *The Quiet Voyage* first). Weighting the two
 lists, or a re-ranker, would be the next step.
 
+## Assistant
+
+`POST /assistant/ask {"question": "..."}` (new `assistant-service`): Claude
+answers "what should I watch?", grounded in the catalog.
+
+```
+guard input → semantic cache → daily budget → retrieve (catalog hybrid search)
+            → Claude (bulkhead → breaker → retry → 8 s timeout) → guard output → cache
+```
+
+- **Grounded (RAG).** The catalog's hybrid search picks 8 titles; the model
+  may recommend only those, by id, through a forced tool call with a JSON
+  schema (no free text to parse). Ids it makes up are dropped and counted.
+  If the catalog is down the model isn't asked at all: no context, no answer.
+- **Guardrails.** Questions are capped at 300 characters and stripped of
+  angle brackets, so a question can't close its `<question>` tag and pose as
+  instructions; catalog text is treated the same way. Off-topic questions are
+  refused (the model sets `on_topic: false`) and not cached. Answers are
+  length-capped.
+- **Cost.** A per-user (20) and global (500) daily cap on LLM calls, checked
+  and counted atomically in Redis; if Redis is down it fails closed. Cache
+  hits are free. Token counts are exported as metrics.
+- **Always an answer.** Slow, down, rate-limited, over budget, breaker open,
+  or no key: the user gets the search results with a plain sentence, and the
+  response names the reason.
+- **Semantic cache,** tuned from measurements rather than guessed. With this
+  embedding model "something funny set in space" vs "something scary set in
+  space" scores 0.785, higher than a genuine paraphrase ("a funny space
+  movie", 0.731), and questions differing only in a number score above 0.93.
+  A threshold low enough for paraphrases would hand the comedy answer to
+  someone asking for horror, so it's 0.93 on normalised text (case and
+  punctuation removed): it catches rewordings like "A space adventure!",
+  never a different request. A better cache key would need a stronger
+  embedding model or an extracted intent (genre, mood) rather than raw text.
+
+The key is read only from `STREAM_HUB_ANTHROPIC_KEY`, never from
+`ANTHROPIC_API_KEY` (on a developer machine that's often another account's,
+such as a work one); a test fails if it's ever picked up. Without a key the
+service still runs and answers from search.
+
+Tests: 11, against real Redis and the real embedding model, with a fake
+Messages API that records every request. Switching off each guard makes a
+test fail: dropping unknown ids, stripping brackets, the cache threshold
+(0.7 serves the wrong answer), the budget, not retrying timeouts, not
+caching refusals, the breaker, ignoring `ANTHROPIC_API_KEY`, and refusing
+to answer without retrieval.
+
 ## Run it
 
 ```
@@ -222,6 +269,8 @@ java -jar playback-service/target/playback-service-0.1.0-SNAPSHOT.jar # :8183
 java -jar history-service/target/history-service-0.1.0-SNAPSHOT.jar   # :8184
 java -jar recs-service/target/recs-service-0.1.0-SNAPSHOT.jar         # :8186
 java -jar home-service/target/home-service-0.1.0-SNAPSHOT.jar         # :8185
+STREAM_HUB_ANTHROPIC_KEY=sk-ant-... \
+  java -jar assistant-service/target/assistant-service-0.1.0-SNAPSHOT.jar  # :8187, key optional
 java -jar gateway/target/gateway-0.1.0-SNAPSHOT.jar                   # :8180, the only public one
 
 curl -H 'Content-Type: application/json' \
@@ -232,6 +281,8 @@ curl -H 'Content-Type: application/json' \
 curl -H "Authorization: Bearer <token>" localhost:8180/titles/1
 curl -H "Authorization: Bearer <token>" 'localhost:8180/search?q=lost+in+space'
 curl -H "Authorization: Bearer <token>" localhost:8180/recs/for-you
+curl -H "Authorization: Bearer <token>" -H 'Content-Type: application/json' \
+     -d '{"question":"something scary for tonight"}' localhost:8180/assistant/ask
 
 mvn test                                         # needs Docker running
 
@@ -259,6 +310,7 @@ events-common/     Kafka event types
 playback-service/  sessions in Redis, publishes playback events
 history-service/   idempotent consumer: continue watching, watch time
 recs-service/      live recommendations: taste vectors from playback events, in Redis
+assistant-service/ Claude-backed assistant: RAG over catalog search, guardrails, semantic cache, budget
 home-service/      home page: parallel rows, deadline, breakers, bulkheads, fallbacks
 infra/             docker-compose for Postgres, Redis, Kafka, Jaeger, Prometheus, Grafana;
                    Prometheus SLO rules and alerts, Grafana dashboard
