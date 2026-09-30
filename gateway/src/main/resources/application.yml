@@ -15,6 +15,8 @@ auth:
 routes:
   catalog: ${CATALOG_URL:http://localhost:8181}
   users: ${USERS_URL:http://localhost:8182}
+  playback: ${PLAYBACK_URL:http://localhost:8183}
+  history: ${HISTORY_URL:http://localhost:8184}
   timeout-ms: 2000          # a backend slower than this gets a 504, not a hung client
 
 limits:

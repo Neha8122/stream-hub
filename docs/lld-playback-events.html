@@ -1,0 +1,211 @@
+<title>Playback Events LLD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column; each diagram in its own scroll box, tables and notes under it. Same system as the other design pages. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --fg: #18202b;
+  --muted: #5d6878;
+  --line: #c9d0da;
+  --hot: #b45309;
+  --hot-tint: #fdf1e3;
+  --rep: #0f766e;
+  --rep-tint: #e3f4f1;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #161d27; --fg: #e3e8ef; --muted: #98a3b3;
+    --line: #2f3a48; --hot: #f59e0b; --hot-tint: #2a2013; --rep: #2dd4bf; --rep-tint: #11282a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #161d27; --fg: #e3e8ef; --muted: #98a3b3;
+  --line: #2f3a48; --hot: #f59e0b; --hot-tint: #2a2013; --rep: #2dd4bf; --rep-tint: #11282a;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 56px; display: grid; gap: 44px; }
+header { display: grid; gap: 6px; }
+h1 { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 18px; font-weight: 600; margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; font-weight: 600; margin: 0; }
+p { margin: 0; max-width: 75ch; }
+.lede { color: var(--muted); max-width: 70ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 0.9em; }
+section { display: grid; gap: 14px; min-width: 0; }
+figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; padding: 8px; }
+.board svg { display: block; width: 100%; min-width: 960px; height: auto; color: var(--fg); }
+figcaption { color: var(--muted); font-size: 14px; max-width: 85ch; }
+
+.box { fill: var(--surface); stroke: var(--fg); stroke-width: 1.4; }
+.box-hot { fill: var(--hot-tint); stroke: var(--hot); stroke-width: 1.8; }
+.box-rep { fill: var(--rep-tint); stroke: var(--rep); stroke-width: 1.6; }
+.box-dim { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; }
+.hdr { fill: var(--bg); stroke: var(--fg); stroke-width: 1.4; }
+.sep { stroke: var(--line); stroke-width: 1; }
+.t { fill: var(--fg); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.s { fill: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.m { fill: var(--fg); font-family: var(--font-mono); font-size: 12px; }
+.mb { fill: var(--fg); font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
+.md { fill: var(--muted); font-family: var(--font-mono); font-size: 11.5px; }
+.lbl-hot { fill: var(--hot); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+.lbl-rep { fill: var(--rep); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+.a-fg { stroke: var(--fg); stroke-width: 1.4; fill: none; }
+.a-hot { stroke: var(--hot); stroke-width: 2; fill: none; }
+.a-rep { stroke: var(--rep); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+.a-dim { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
+.h-fg { fill: var(--fg); } .h-hot { fill: var(--hot); } .h-rep { fill: var(--rep); } .h-dim { fill: var(--muted); }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; }
+td.n, th.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+tr.ask td:first-child { color: var(--hot); font-weight: 600; }
+tr.bid td:first-child { color: var(--rep); font-weight: 600; }
+tr.gone td { color: var(--muted); text-decoration: line-through; }
+tr.mid td { color: var(--muted); font-size: 12.5px; text-align: center; border-bottom: 1px dashed var(--line); }
+.chip { display: inline-block; font-family: var(--font-mono); font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--hot-tint); color: var(--hot); }
+ol.flow { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 8px; counter-reset: st; }
+ol.flow li { counter-increment: st; display: grid; grid-template-columns: 26px 1fr; gap: 6px; align-items: baseline; }
+ol.flow li::before { content: counter(st); font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--hot); }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 13px; line-height: 1.6; color: var(--fg); }
+.tree { font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">stream-hub · playback + history · step 2</span>
+    <h1>Playback Events LLD</h1>
+    <p class="lede">Pressing play and watching produces a stream of events. They go through Kafka to a consumer that keeps "continue watching" and total watch time up to date. Kafka delivers every message at least once, so the consumer has to make a second delivery harmless.</p>
+  </header>
+
+  <section>
+    <h2>1 · The path</h2>
+    <figure>
+      <div class="board">
+        <svg viewBox="0 0 1200 270" role="img" aria-label="The player calls the playback service to start, send a heartbeat every 30 seconds and stop. The playback service keeps the session in Redis, works out how many seconds were watched since the last heartbeat, and publishes an event to Kafka keyed by user id. The history consumer reads batches and, in one database transaction per event, records the event id, moves progress forward if newer, and adds watch time. Offsets are committed only after the transaction. Messages that keep failing go to a dead-letter topic.">
+          <defs>
+            <marker id="e1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-fg" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="e1h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-hot" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="e1r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-rep" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="e1d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-dim" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+          <rect class="box" x="20" y="90" width="130" height="80" rx="6"/>
+          <text class="t" x="85" y="118" text-anchor="middle">Player</text>
+          <text class="s" x="85" y="138" text-anchor="middle">start · heartbeat</text>
+          <text class="s" x="85" y="154" text-anchor="middle">every 30 s · stop</text>
+          <line class="a-hot" x1="150" y1="130" x2="197" y2="130" marker-end="url(#e1h)"/>
+
+          <rect class="box-hot" x="200" y="70" width="210" height="120" rx="6"/>
+          <text class="t" x="216" y="96">Playback service</text>
+          <text class="s" x="216" y="118">session in Redis (TTL 2 min)</text>
+          <text class="s" x="216" y="136">watched = new − last position,</text>
+          <text class="s" x="216" y="152">clamped 0..60 s</text>
+          <text class="s" x="216" y="172">publish, key = userId</text>
+
+          <line class="a-rep" x1="410" y1="130" x2="467" y2="130" marker-end="url(#e1r)" style="stroke-dasharray:none"/>
+          <rect class="box-rep" x="470" y="80" width="190" height="100" rx="6"/>
+          <text class="t" x="486" y="104">Kafka</text>
+          <text class="m" x="486" y="126">playback-events</text>
+          <text class="s" x="486" y="146">one user's events stay</text>
+          <text class="s" x="486" y="162">in order (same partition)</text>
+
+          <line class="a-rep" x1="660" y1="130" x2="717" y2="130" marker-end="url(#e1r)" style="stroke-dasharray:none"/>
+          <text class="lbl-rep" x="688" y="122" text-anchor="middle">batch</text>
+          <rect class="box" x="720" y="40" width="300" height="180" rx="6"/>
+          <text class="t" x="736" y="64">History consumer: per event, one transaction</text>
+          <text class="m" x="736" y="90">1 INSERT processed_events(id)</text>
+          <text class="md" x="752" y="106">already there? duplicate: skip all</text>
+          <text class="m" x="736" y="130">2 progress = max by time</text>
+          <text class="md" x="752" y="146">an older event never moves it back</text>
+          <text class="m" x="736" y="170">3 watch_seconds += watched</text>
+          <text class="md" x="752" y="186">the one step that must not repeat</text>
+          <text class="lbl-hot" x="736" y="210">then commit the Kafka offsets</text>
+
+          <line class="a-fg" x1="1020" y1="130" x2="1067" y2="130" marker-end="url(#e1)"/>
+          <rect class="box" x="1070" y="96" width="110" height="68" rx="6"/>
+          <text class="t" x="1125" y="124" text-anchor="middle">Postgres</text>
+          <text class="s" x="1125" y="144" text-anchor="middle">history DB</text>
+
+          <line class="a-dim" x1="870" y1="220" x2="870" y2="247" marker-end="url(#e1d)"/>
+          <rect class="box-dim" x="720" y="250" width="300" height="18" rx="4"/>
+          <text class="md" x="870" y="263" text-anchor="middle">fails 3 times → playback-events.DLT, partition moves on</text>
+        </svg>
+      </div>
+      <figcaption>Continue-watching comes out of this for free: <code>GET /continue-watching</code> returns titles with progress, newest first, leaving out ones watched past 95%.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>2 · Why a crash can't double-count</h2>
+    <figure>
+      <div class="board">
+        <svg viewBox="0 0 1200 190" role="img" aria-label="The consumer commits the database transaction, then crashes before committing the Kafka offset. On restart Kafka delivers the same event again. The insert into processed_events finds the id already there, so nothing is applied a second time, and the offset is committed.">
+          <defs>
+            <marker id="e2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-fg" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+          <rect class="box-rep" x="20" y="30" width="220" height="56" rx="6"/>
+          <text class="t" x="36" y="54">Event e17 arrives</text><text class="s" x="36" y="74">DB transaction commits: +30 s</text>
+          <line class="a-fg" x1="240" y1="58" x2="277" y2="58" marker-end="url(#e2)"/>
+          <rect class="box-hot" x="280" y="30" width="220" height="56" rx="6"/>
+          <text class="t" x="296" y="54">Consumer crashes</text><text class="lbl-hot" x="296" y="74">before the offset commit</text>
+          <line class="a-fg" x1="500" y1="58" x2="537" y2="58" marker-end="url(#e2)"/>
+          <rect class="box" x="540" y="30" width="220" height="56" rx="6"/>
+          <text class="t" x="556" y="54">Restart: e17 again</text><text class="s" x="556" y="74">Kafka resends from the offset</text>
+          <line class="a-fg" x1="760" y1="58" x2="797" y2="58" marker-end="url(#e2)"/>
+          <rect class="box-rep" x="800" y="30" width="380" height="56" rx="6"/>
+          <text class="t" x="816" y="54">processed_events already has e17</text><text class="s" x="816" y="74">skip: still +30 s once, then commit the offset</text>
+
+          <text class="md" x="20" y="126">Without the processed_events row in the same transaction, the second delivery would add another 30 s.</text>
+          <text class="md" x="20" y="146">Committing the offset first instead would lose e17 if the crash came before the database write.</text>
+          <text class="md" x="20" y="166">At-least-once delivery + an idempotent consumer = each event's effect exactly once.</text>
+        </svg>
+      </div>
+    </figure>
+  </section>
+
+  <section>
+    <h2>3 · Decisions</h2>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Decision</th><th>Chosen</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Key</td><td>userId</td><td>one user's events land on one partition, in order; users spread across partitions</td></tr>
+          <tr><td>Producer</td><td><code>acks=all</code>, idempotent producer</td><td>an event isn't lost if a broker dies, and a producer retry doesn't write it twice</td></tr>
+          <tr><td>Watched seconds</td><td>computed by playback from the session, clamped to 0..60</td><td>a player that retries a heartbeat sends the same position again, which adds 0; a bogus position can't add hours</td></tr>
+          <tr><td>Progress</td><td>kept only if the event is newer</td><td>idempotent and safe when events arrive late or twice</td></tr>
+          <tr><td>Watch time</td><td>increment, guarded by <code>processed_events</code> in the same transaction</td><td>increments are the non-idempotent part; the guard makes them happen once</td></tr>
+          <tr><td>Offsets</td><td>committed after the transaction</td><td>at-least-once: nothing lost, duplicates handled above</td></tr>
+          <tr><td>Bad messages</td><td>3 retries, then the dead-letter topic</td><td>one poison message must not block every user on that partition</td></tr>
+          <tr><td>Redis + Kafka write</td><td>no outbox here</td><td>a lost heartbeat is corrected by the next one; for events that must never be lost, write them to an outbox table in the same transaction and publish from there</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · Tests (real Kafka, Redis, Postgres)</h2>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <tbody>
+          <tr><td>Playback</td><td>start/heartbeat/stop publish the right events; retried heartbeat adds 0 s; another user's session is refused; expired session is 404</td></tr>
+          <tr><td>Same event twice</td><td>watch time counted once</td></tr>
+          <tr><td>Out of order</td><td>an older heartbeat arriving late doesn't move progress back</td></tr>
+          <tr><td>Crash after commit</td><td>the listener fails right after its transaction commits, the event is redelivered, and it is still counted once</td></tr>
+          <tr><td>Poison message</td><td>ends up on the DLT, and the next good message is still processed</td></tr>
+          <tr><td>Continue watching</td><td>newest first, finished titles left out</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+</div>

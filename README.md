@@ -12,7 +12,7 @@ assistant that keeps working when the AI doesn't.
 | Step | Scope | State |
 |---|---|---|
 | 1 | Catalog + user + gateway, Postgres, Redis cache | ✅ |
-| 2 | Playback + Kafka + idempotent consumers, DLQ | ⬜ |
+| 2 | Playback + Kafka + idempotent consumers, DLQ | ✅ |
 | 3 | Resilience: timeouts, circuit breakers, bulkheads, rate limits | ⬜ |
 | 4 | Observability: OpenTelemetry, Prometheus, Grafana, SLOs | ⬜ |
 | 5 | AI: embeddings, hybrid search, live-feature recommendations | ⬜ |
@@ -61,6 +61,33 @@ A bug the tests caught: with two rate limiters and one marked `@Primary`,
 Spring injected the primary one into the parameter named for the other, so
 login silently had the lax limit. Fixed with explicit `@Qualifier`s.
 
+## Playback events
+
+Start, heartbeat (every 30 s) and stop go to the playback service, which
+keeps the session in Redis and publishes events to Kafka keyed by user id.
+The history consumer turns them into "continue watching" and total watch
+time. Kafka delivers at least once, so the consumer makes a second delivery
+harmless: each event's id is inserted into `processed_events` in the same
+transaction as its effects, and offsets are committed only after it.
+
+| Test (real Kafka, Redis, Postgres) | Result |
+|---|---|
+| Same event delivered twice | counted once |
+| Crash after the DB commit, before the offset commit | redelivered, still counted once |
+| An older event arriving late | progress doesn't move back (600 s stays 600, not 100) |
+| A message that isn't JSON, or an event that keeps failing | parked on `playback-events.DLT` after 3 retries; the next event on the partition is processed |
+| 20 copies of one heartbeat at the same instant | the watched seconds counted once (an atomic Redis script) |
+| A retried heartbeat, a seek back, a huge jump | adds 0, 0, at most 60 s |
+
+End to end through the gateway, playing two titles with a repeated heartbeat
+each: watch time came out at exactly the expected 250 s.
+
+Bugs found on the way: Spring Kafka's dead-letter topic defaults to
+`<topic>-dlt`, not `.DLT`, and publishing to a missing topic left the bad
+message blocking its whole partition; and dead-letter producers built from
+`KafkaProperties` ignored the test container's address. Both fixed (explicit
+DLT name, producers built from Spring's own producer factory).
+
 ## Run it
 
 ```
@@ -68,6 +95,8 @@ docker compose -f infra/docker-compose.yml up -d
 mvn install -DskipTests
 java -jar catalog-service/target/catalog-service-0.1.0-SNAPSHOT.jar   # :8181
 java -jar user-service/target/user-service-0.1.0-SNAPSHOT.jar         # :8182
+java -jar playback-service/target/playback-service-0.1.0-SNAPSHOT.jar # :8183
+java -jar history-service/target/history-service-0.1.0-SNAPSHOT.jar   # :8184
 java -jar gateway/target/gateway-0.1.0-SNAPSHOT.jar                   # :8180, the only public one
 
 curl -H 'Content-Type: application/json' \
@@ -84,6 +113,7 @@ mvn test                                         # needs Docker running
 
 - [HLD](docs/hld.html): services, events, scale, APIs, deep dives, build order
 - [Catalog cache LLD](docs/lld-catalog-cache.html): cache-aside, stampede protection
+- [Playback events LLD](docs/lld-playback-events.html): Kafka, idempotent consumer, DLT
 
 ## Layout
 
@@ -92,6 +122,9 @@ auth-common/       JWT issue and verify, shared
 gateway/           entry point: JWT check, rate limits, routing, timeouts
 catalog-service/   titles, Redis cache-aside with stampede protection
 user-service/      accounts, BCrypt, login
-infra/             docker-compose for Postgres and Redis
+events-common/     Kafka event types
+playback-service/  sessions in Redis, publishes playback events
+history-service/   idempotent consumer: continue watching, watch time
+infra/             docker-compose for Postgres, Redis and Kafka
 docs/              design pages
 ```

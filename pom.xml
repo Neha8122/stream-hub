@@ -21,8 +21,11 @@
     <!-- One module per service (docs/hld.html). -->
     <modules>
         <module>auth-common</module>
+        <module>events-common</module>
         <module>catalog-service</module>
         <module>user-service</module>
+        <module>playback-service</module>
+        <module>history-service</module>
         <module>gateway</module>
     </modules>
 
@@ -51,6 +54,11 @@
             <dependency>
                 <groupId>com.streamhub</groupId>
                 <artifactId>auth-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.streamhub</groupId>
+                <artifactId>events-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

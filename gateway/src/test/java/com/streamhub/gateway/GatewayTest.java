@@ -52,6 +52,8 @@ class GatewayTest {
         String url = "http://localhost:" + backend.getAddress().getPort();
         r.add("routes.catalog", () -> url);
         r.add("routes.users", () -> url);
+        r.add("routes.playback", () -> url);
+        r.add("routes.history", () -> url);
         r.add("auth.jwt-secret", () -> SECRET);
     }
 
