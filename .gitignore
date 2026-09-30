@@ -1,0 +1,10 @@
+# Build output
+target/
+dependency-reduced-pom.xml
+
+# IntelliJ
+.idea/
+*.iml
+
+# macOS
+.DS_Store

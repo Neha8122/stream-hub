@@ -1,0 +1,29 @@
+server:
+  port: 8181     # stream-hub services use 818x
+
+spring:
+  application:
+    name: catalog-service
+  datasource:
+    url: ${CATALOG_DB_URL:jdbc:postgresql://localhost:5432/catalog}
+    username: ${DB_USER:streamhub}
+    password: ${DB_PASSWORD:streamhub}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # Fail fast: if Redis is slow or down we'd rather read Postgres than wait.
+      timeout: 200ms
+      connect-timeout: 500ms
+
+catalog:
+  cache:
+    fresh-for: 5m          # after this an entry is stale: served, but one request refreshes it
+    keep-for: 1h           # Redis TTL: how long a stale copy stays usable
+    missing-for: 30s       # how long "this id doesn't exist" is remembered
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus

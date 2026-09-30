@@ -1,0 +1,326 @@
+<title>Stream Hub HLD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column; each diagram in its own scroll box, tables and notes under it. Same system as the other design pages. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --fg: #18202b;
+  --muted: #5d6878;
+  --line: #c9d0da;
+  --hot: #b45309;
+  --hot-tint: #fdf1e3;
+  --rep: #0f766e;
+  --rep-tint: #e3f4f1;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #161d27; --fg: #e3e8ef; --muted: #98a3b3;
+    --line: #2f3a48; --hot: #f59e0b; --hot-tint: #2a2013; --rep: #2dd4bf; --rep-tint: #11282a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #161d27; --fg: #e3e8ef; --muted: #98a3b3;
+  --line: #2f3a48; --hot: #f59e0b; --hot-tint: #2a2013; --rep: #2dd4bf; --rep-tint: #11282a;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 56px; display: grid; gap: 44px; }
+header { display: grid; gap: 6px; }
+h1 { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 18px; font-weight: 600; margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; font-weight: 600; margin: 0; }
+p { margin: 0; max-width: 75ch; }
+.lede { color: var(--muted); max-width: 70ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 0.9em; }
+section { display: grid; gap: 14px; min-width: 0; }
+figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; padding: 8px; }
+.board svg { display: block; width: 100%; min-width: 960px; height: auto; color: var(--fg); }
+figcaption { color: var(--muted); font-size: 14px; max-width: 85ch; }
+
+.box { fill: var(--surface); stroke: var(--fg); stroke-width: 1.4; }
+.box-hot { fill: var(--hot-tint); stroke: var(--hot); stroke-width: 1.8; }
+.box-rep { fill: var(--rep-tint); stroke: var(--rep); stroke-width: 1.6; }
+.box-dim { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; }
+.hdr { fill: var(--bg); stroke: var(--fg); stroke-width: 1.4; }
+.sep { stroke: var(--line); stroke-width: 1; }
+.t { fill: var(--fg); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.s { fill: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.m { fill: var(--fg); font-family: var(--font-mono); font-size: 12px; }
+.mb { fill: var(--fg); font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
+.md { fill: var(--muted); font-family: var(--font-mono); font-size: 11.5px; }
+.lbl { fill: var(--fg); font-family: var(--font-mono); font-size: 11.5px; }
+.lbl-hot { fill: var(--hot); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+.lbl-rep { fill: var(--rep); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+.a-fg { stroke: var(--fg); stroke-width: 1.4; fill: none; }
+.a-hot { stroke: var(--hot); stroke-width: 2; fill: none; }
+.a-rep { stroke: var(--rep); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+.a-dim { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
+.h-fg { fill: var(--fg); } .h-hot { fill: var(--hot); } .h-rep { fill: var(--rep); } .h-dim { fill: var(--muted); }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; }
+td.n, th.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+tr.ask td:first-child { color: var(--hot); font-weight: 600; }
+tr.bid td:first-child { color: var(--rep); font-weight: 600; }
+tr.gone td { color: var(--muted); text-decoration: line-through; }
+tr.mid td { color: var(--muted); font-size: 12.5px; text-align: center; border-bottom: 1px dashed var(--line); }
+.chip { display: inline-block; font-family: var(--font-mono); font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--hot-tint); color: var(--hot); }
+ol.flow { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 8px; counter-reset: st; }
+ol.flow li { counter-increment: st; display: grid; grid-template-columns: 26px 1fr; gap: 6px; align-items: baseline; }
+ol.flow li::before { content: counter(st); font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--hot); }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 13px; line-height: 1.6; color: var(--fg); }
+.tree { font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">stream-hub · high-level design</span>
+    <h1>Stream Hub HLD</h1>
+    <p class="lede">The backend of a video streaming service: browse a catalog, search it, press play, pick up where you left off, and get recommendations that react to what you just watched. Built as microservices around a Kafka event stream, with caching, resilience and observability throughout, plus AI search and an assistant that keeps working when the AI doesn't.</p>
+  </header>
+
+  <!-- SYSTEM VIEW -->
+  <section>
+    <h2>System view</h2>
+    <figure>
+      <div class="board">
+        <svg viewBox="0 0 1200 640" role="img" aria-label="Clients call an API gateway that authenticates, rate-limits and routes to six services: user, catalog, search, playback, recommendations and assistant. Services use Postgres, Redis and Elasticsearch. Playback and catalog publish events to Kafka; three consumers read them to update continue-watching, real-time features and the search index. The assistant calls an external LLM behind a circuit breaker. Every service sends traces and metrics to the observability stack.">
+          <defs>
+            <marker id="h1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-fg" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="h1h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-hot" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="h1r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-rep" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="h1d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-dim" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+
+          <!-- clients + gateway -->
+          <rect class="box" x="20" y="262" width="130" height="70" rx="6"/>
+          <text class="t" x="85" y="292" text-anchor="middle">Clients</text>
+          <text class="s" x="85" y="312" text-anchor="middle">TV · mobile · web</text>
+          <line class="a-hot" x1="150" y1="297" x2="177" y2="297" marker-end="url(#h1h)"/>
+
+          <rect class="box-hot" x="180" y="240" width="150" height="114" rx="6"/>
+          <text class="t" x="255" y="268" text-anchor="middle">API Gateway</text>
+          <text class="s" x="255" y="290" text-anchor="middle">JWT auth</text>
+          <text class="s" x="255" y="308" text-anchor="middle">rate limit (Redis)</text>
+          <text class="s" x="255" y="326" text-anchor="middle">routing · timeouts</text>
+
+          <!-- bus to services -->
+          <line class="a-hot" x1="330" y1="297" x2="360" y2="297"/>
+          <line class="a-hot" x1="360" y1="88" x2="360" y2="428"/>
+          <text class="lbl-hot" x="352" y="80" text-anchor="end">HTTP</text>
+
+          <!-- services -->
+          <g>
+            <rect class="box" x="390" y="60" width="210" height="56" rx="6"/>
+            <text class="t" x="406" y="84">User service</text><text class="s" x="406" y="103">profiles, auth tokens</text>
+            <rect class="box" x="390" y="128" width="210" height="56" rx="6"/>
+            <text class="t" x="406" y="152">Catalog service</text><text class="s" x="406" y="171">titles, rows · cache-aside</text>
+            <rect class="box" x="390" y="196" width="210" height="56" rx="6"/>
+            <text class="t" x="406" y="220">Search service</text><text class="s" x="406" y="239">keyword + meaning (hybrid)</text>
+            <rect class="box-hot" x="390" y="264" width="210" height="56" rx="6"/>
+            <text class="t" x="406" y="288">Playback service</text><text class="s" x="406" y="307">sessions, heartbeats</text>
+            <rect class="box" x="390" y="332" width="210" height="56" rx="6"/>
+            <text class="t" x="406" y="356">Recommendation service</text><text class="s" x="406" y="375">candidates + re-rank, &lt;100 ms</text>
+            <rect class="box" x="390" y="400" width="210" height="56" rx="6"/>
+            <text class="t" x="406" y="424">Assistant service</text><text class="s" x="406" y="443">"what should I watch?"</text>
+          </g>
+          <line class="a-hot" x1="360" y1="88" x2="387" y2="88" marker-end="url(#h1h)"/>
+          <line class="a-hot" x1="360" y1="156" x2="387" y2="156" marker-end="url(#h1h)"/>
+          <line class="a-hot" x1="360" y1="224" x2="387" y2="224" marker-end="url(#h1h)"/>
+          <line class="a-hot" x1="360" y1="292" x2="387" y2="292" marker-end="url(#h1h)"/>
+          <line class="a-hot" x1="360" y1="360" x2="387" y2="360" marker-end="url(#h1h)"/>
+          <line class="a-hot" x1="360" y1="428" x2="387" y2="428" marker-end="url(#h1h)"/>
+
+          <!-- LLM -->
+          <line class="a-dim" x1="495" y1="456" x2="495" y2="497" marker-end="url(#h1d)"/>
+          <text class="md" x="503" y="482">timeout · circuit breaker</text>
+          <rect class="box-dim" x="390" y="500" width="210" height="56" rx="6"/>
+          <text class="t" x="406" y="524">LLM API (external)</text>
+          <text class="s" x="406" y="543">down or slow? fall back, never fail</text>
+
+          <!-- stores -->
+          <text class="md" x="680" y="48">STORES</text>
+          <rect class="box" x="680" y="60" width="190" height="56" rx="6"/>
+          <text class="t" x="696" y="84">Postgres</text><text class="s" x="696" y="103">users · titles · progress</text>
+          <rect class="box" x="680" y="128" width="190" height="80" rx="6"/>
+          <text class="t" x="696" y="152">Redis</text>
+          <text class="s" x="696" y="171">cache · sessions</text>
+          <text class="s" x="696" y="189">live features · semantic cache</text>
+          <rect class="box" x="680" y="220" width="190" height="56" rx="6"/>
+          <text class="t" x="696" y="244">Elasticsearch</text><text class="s" x="696" y="263">text index + vector kNN</text>
+
+          <line class="a-fg" x1="600" y1="88" x2="677" y2="88" marker-end="url(#h1)"/>
+          <line class="a-fg" x1="600" y1="150" x2="677" y2="150" marker-end="url(#h1)"/>
+          <text class="md" x="638" y="143" text-anchor="middle">cache</text>
+          <line class="a-fg" x1="600" y1="232" x2="677" y2="244" marker-end="url(#h1)"/>
+          <line class="a-fg" x1="600" y1="352" x2="677" y2="190" marker-end="url(#h1)"/>
+
+          <!-- kafka -->
+          <rect class="box-rep" x="680" y="330" width="190" height="120" rx="6"/>
+          <text class="t" x="696" y="354">Kafka</text>
+          <text class="m" x="696" y="378">playback-events</text>
+          <text class="m" x="696" y="398">catalog-changes</text>
+          <text class="s" x="696" y="422">partitioned by userId /</text>
+          <text class="s" x="696" y="438">titleId: order per key</text>
+          <line class="a-rep" x1="600" y1="300" x2="677" y2="372" marker-end="url(#h1r)" style="stroke-dasharray:none"/>
+          <text class="lbl-rep" x="648" y="318">events</text>
+          <polyline class="a-rep" points="600,176 640,176 640,394 677,394" marker-end="url(#h1r)"/>
+
+          <!-- consumers -->
+          <text class="md" x="940" y="48">CONSUMERS (async, idempotent, DLQ)</text>
+          <rect class="box" x="940" y="300" width="240" height="56" rx="6"/>
+          <text class="t" x="956" y="324">History consumer</text><text class="s" x="956" y="343">continue watching → Postgres</text>
+          <rect class="box" x="940" y="368" width="240" height="56" rx="6"/>
+          <text class="t" x="956" y="392">Feature consumer</text><text class="s" x="956" y="411">recent genres, minutes → Redis</text>
+          <rect class="box" x="940" y="436" width="240" height="56" rx="6"/>
+          <text class="t" x="956" y="460">Search indexer</text><text class="s" x="956" y="479">titles + embeddings → ES</text>
+          <line class="a-rep" x1="870" y1="360" x2="937" y2="328" marker-end="url(#h1r)" style="stroke-dasharray:none"/>
+          <line class="a-rep" x1="870" y1="390" x2="937" y2="396" marker-end="url(#h1r)" style="stroke-dasharray:none"/>
+          <line class="a-rep" x1="870" y1="420" x2="937" y2="462" marker-end="url(#h1r)" style="stroke-dasharray:none"/>
+
+          <!-- DLQ -->
+          <rect class="box-dim" x="940" y="60" width="240" height="56" rx="6"/>
+          <text class="t" x="956" y="84">Dead-letter topics</text><text class="s" x="956" y="103">poison messages, retried or inspected</text>
+          <line class="a-dim" x1="1060" y1="298" x2="1060" y2="119" marker-end="url(#h1d)"/>
+          <text class="md" x="1068" y="210">after N retries</text>
+
+          <!-- observability -->
+          <rect class="box-dim" x="20" y="590" width="1160" height="36" rx="6"/>
+          <text class="m" x="600" y="613" text-anchor="middle">OpenTelemetry from every service → traces (Jaeger) · metrics (Prometheus) · dashboards + SLO alerts (Grafana)</text>
+
+          <!-- legend -->
+          <line class="a-hot" x1="24" y1="470" x2="70" y2="470" marker-end="url(#h1h)"/>
+          <text class="lbl" x="80" y="474">user request</text>
+          <line class="a-rep" x1="24" y1="496" x2="70" y2="496" marker-end="url(#h1r)" style="stroke-dasharray:none"/>
+          <text class="lbl" x="80" y="500">event (Kafka)</text>
+          <line class="a-dim" x1="24" y1="522" x2="70" y2="522" marker-end="url(#h1d)"/>
+          <text class="lbl" x="80" y="526">external / fallback</text>
+        </svg>
+      </div>
+      <figcaption>Requests (orange) only touch fast stores. Anything slow or heavy, like updating history, recomputing features or re-indexing, happens after the response, driven by Kafka events (teal). The one external dependency, the LLM, sits behind a timeout and a circuit breaker with a non-AI fallback.</figcaption>
+    </figure>
+
+    <div class="cols">
+      <div class="card">
+        <h3>Flow 1 · Opening the home page</h3>
+        <ol class="flow">
+          <li><span>Gateway checks the token and the user's rate limit, routes to the recommendation service.</span></li>
+          <li><span>Recs reads the user's <b>live features</b> from Redis (what they watched in the last hour).</span></li>
+          <li><span>Finds <b>candidates</b> by vector similarity in Elasticsearch, <b>re-ranks</b> them with the features.</span></li>
+          <li><span>Continue-watching and catalog rows come from Redis cache; a miss reads Postgres once, then caches.</span></li>
+          <li><span>Over the latency budget? Serve "popular in your region" instead: <b>degrade, don't fail</b>.</span></li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Flow 2 · Pressing play</h3>
+        <ol class="flow">
+          <li><span>Playback opens a <b>session</b> in Redis and returns the stream URL.</span></li>
+          <li><span>Every 30 s the player sends a <b>heartbeat</b> (position); playback keeps it in Redis.</span></li>
+          <li><span>Playback publishes <code>playback-events</code> to Kafka, keyed by userId so one user's events stay in order.</span></li>
+          <li><span>History consumer updates continue-watching; feature consumer updates live features.</span></li>
+          <li><span>The next home page already reflects what was just watched: seconds, not a nightly batch.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- NUMBERS -->
+  <section>
+    <h2>Scale to design for</h2>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Quantity</th><th>Assumption → result</th><th>What it forces</th></tr></thead>
+        <tbody>
+          <tr><td>Peak concurrent viewers</td><td>1M of 10M users</td><td>stateless services, scale out behind the gateway</td></tr>
+          <tr><td>Heartbeats</td><td>1M ÷ 30 s → <b>~33k/s</b>, ~200 B each (~7 MB/s)</td><td>never write each one to Postgres: keep position in Redis, persist on stop or every few minutes (~2k writes/s)</td></tr>
+          <tr><td>Home page loads</td><td>~20k/s at peak</td><td>per-user rows cached in Redis; recs p99 under 100 ms or fall back</td></tr>
+          <tr><td>Search</td><td>~2k/s</td><td>Elasticsearch, not SQL LIKE</td></tr>
+          <tr><td>Assistant</td><td>~100/s, each LLM call 0.5–3 s and costs money</td><td>semantic cache, timeouts, circuit breaker, cost metrics</td></tr>
+          <tr><td>Catalog</td><td>~20k titles</td><td>small: fits in cache entirely; embeddings ~20k × 384 floats ≈ 30 MB</td></tr>
+        </tbody>
+      </table></div>
+      <p class="lede">The project runs a scaled-down version on one machine (Docker Compose, then kind for Kubernetes) and reports measured numbers from that setup, not these.</p>
+    </div>
+  </section>
+
+  <!-- API + DATA -->
+  <section>
+    <h2>APIs and data</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Public API (through the gateway)</h3>
+        <div class="tbl-wrap"><table>
+          <tbody>
+            <tr><td><code>GET /home</code></td><td>recommendation rows + continue watching</td></tr>
+            <tr><td><code>GET /titles/{id}</code></td><td>title details</td></tr>
+            <tr><td><code>GET /search?q=</code></td><td>hybrid search: words and meaning</td></tr>
+            <tr><td><code>POST /playback/start</code></td><td>open a session</td></tr>
+            <tr><td><code>POST /playback/heartbeat</code></td><td>position update, every 30 s</td></tr>
+            <tr><td><code>POST /playback/stop</code></td><td>close the session, persist position</td></tr>
+            <tr><td><code>POST /assistant/ask</code></td><td>natural-language request → real titles</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <h3>Where data lives</h3>
+        <div class="tbl-wrap"><table>
+          <tbody>
+            <tr><td>Postgres</td><td><code>users</code>, <code>titles</code>, <code>viewing_progress(user, title, position, updated_at)</code>, <code>processed_events</code> (idempotency keys)</td></tr>
+            <tr><td>Redis</td><td>title cache, sessions, live positions, per-user features, rate-limit buckets, semantic cache of LLM answers</td></tr>
+            <tr><td>Elasticsearch</td><td>title documents with a text index and an embedding vector</td></tr>
+            <tr><td>Kafka</td><td><code>playback-events</code> (key userId), <code>catalog-changes</code> (key titleId), <code>*.dlq</code></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEEP DIVES -->
+  <section>
+    <h2>Deep dives to be ready for</h2>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Question</th><th>Answer in this design</th></tr></thead>
+        <tbody>
+          <tr><td>A consumer crashes after writing but before committing its Kafka offset. What happens?</td><td>Kafka redelivers. Consumers are <b>idempotent</b>: every event has an id, and the write plus a <code>processed_events</code> row happen in one DB transaction, so a redelivered event changes nothing.</td></tr>
+          <tr><td>One bad message keeps failing.</td><td>Retry with backoff a few times, then move it to a <b>dead-letter topic</b> so the partition isn't stuck behind it.</td></tr>
+          <tr><td>33k heartbeats a second into Postgres?</td><td>No: write-behind. Latest position in Redis; persist on stop, on a timer, or when it changes by a lot.</td></tr>
+          <tr><td>A hot title expires from cache and 10k requests miss at once.</td><td><b>Stampede protection</b>: one request rebuilds while the others get the stale value; TTLs get random jitter so keys don't expire together.</td></tr>
+          <tr><td>The recommendation store is slow.</td><td>Timeout plus bulkhead so it can't drain the threads, then a fallback row. The page still loads.</td></tr>
+          <tr><td>The LLM is down or takes 10 s.</td><td>Circuit breaker opens, the assistant answers from search instead, and the dashboard shows a fallback rate. The model may only return titles that exist in the catalog.</td></tr>
+          <tr><td>How do you know it's healthy?</td><td>SLOs (e.g. 99.9% of home loads under 300 ms), burn-rate alerts, and a trace for any slow request across every service.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- PLAN -->
+  <section>
+    <h2>Build order</h2>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Step</th><th>What</th><th>Proved by</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Catalog + user + gateway, Postgres, Redis cache, Docker Compose</td><td>API tests; cache hit rate; stampede test</td></tr>
+          <tr><td>2</td><td>Playback + Kafka + history consumer: idempotent, DLQ</td><td>kill a consumer mid-batch: no duplicates, nothing lost</td></tr>
+          <tr><td>3</td><td>Resilience: timeouts, circuit breakers, bulkheads, rate limits; chaos tests</td><td>a dependency goes slow or down, error rate stays under the SLO</td></tr>
+          <tr><td>4</td><td>Observability: OpenTelemetry, Prometheus, Grafana, SLO alerts</td><td>one trace across all services; dashboards</td></tr>
+          <tr><td>5</td><td>AI: embeddings, hybrid search, live-feature recommendations</td><td>recall@k and NDCG on a labelled set; recs p99</td></tr>
+          <tr><td>6</td><td>Assistant: LLM behind a breaker, semantic cache, guardrails, cost metrics, offline eval</td><td>works with the LLM switched off; cache hit rate; cost per request</td></tr>
+          <tr><td>7</td><td>Kubernetes (kind), autoscaling, load test (k6/Gatling), README with numbers</td><td>measured throughput, p99 and availability under chaos</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+</div>

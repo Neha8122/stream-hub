@@ -1,0 +1,188 @@
+<title>Catalog Cache LLD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column; each diagram in its own scroll box, tables and notes under it. Same system as the other design pages. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --fg: #18202b;
+  --muted: #5d6878;
+  --line: #c9d0da;
+  --hot: #b45309;
+  --hot-tint: #fdf1e3;
+  --rep: #0f766e;
+  --rep-tint: #e3f4f1;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #161d27; --fg: #e3e8ef; --muted: #98a3b3;
+    --line: #2f3a48; --hot: #f59e0b; --hot-tint: #2a2013; --rep: #2dd4bf; --rep-tint: #11282a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #161d27; --fg: #e3e8ef; --muted: #98a3b3;
+  --line: #2f3a48; --hot: #f59e0b; --hot-tint: #2a2013; --rep: #2dd4bf; --rep-tint: #11282a;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 56px; display: grid; gap: 44px; }
+header { display: grid; gap: 6px; }
+h1 { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 18px; font-weight: 600; margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; font-weight: 600; margin: 0; }
+p { margin: 0; max-width: 75ch; }
+.lede { color: var(--muted); max-width: 70ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 0.9em; }
+section { display: grid; gap: 14px; min-width: 0; }
+figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; padding: 8px; }
+.board svg { display: block; width: 100%; min-width: 960px; height: auto; color: var(--fg); }
+figcaption { color: var(--muted); font-size: 14px; max-width: 85ch; }
+
+.box { fill: var(--surface); stroke: var(--fg); stroke-width: 1.4; }
+.box-hot { fill: var(--hot-tint); stroke: var(--hot); stroke-width: 1.8; }
+.box-rep { fill: var(--rep-tint); stroke: var(--rep); stroke-width: 1.6; }
+.box-dim { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; }
+.hdr { fill: var(--bg); stroke: var(--fg); stroke-width: 1.4; }
+.sep { stroke: var(--line); stroke-width: 1; }
+.t { fill: var(--fg); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.s { fill: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.m { fill: var(--fg); font-family: var(--font-mono); font-size: 12px; }
+.mb { fill: var(--fg); font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
+.md { fill: var(--muted); font-family: var(--font-mono); font-size: 11.5px; }
+.lbl-hot { fill: var(--hot); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+.lbl-rep { fill: var(--rep); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+.a-fg { stroke: var(--fg); stroke-width: 1.4; fill: none; }
+.a-hot { stroke: var(--hot); stroke-width: 2; fill: none; }
+.a-rep { stroke: var(--rep); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+.a-dim { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
+.h-fg { fill: var(--fg); } .h-hot { fill: var(--hot); } .h-rep { fill: var(--rep); } .h-dim { fill: var(--muted); }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; }
+td.n, th.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+tr.ask td:first-child { color: var(--hot); font-weight: 600; }
+tr.bid td:first-child { color: var(--rep); font-weight: 600; }
+tr.gone td { color: var(--muted); text-decoration: line-through; }
+tr.mid td { color: var(--muted); font-size: 12.5px; text-align: center; border-bottom: 1px dashed var(--line); }
+.chip { display: inline-block; font-family: var(--font-mono); font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--hot-tint); color: var(--hot); }
+ol.flow { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 8px; counter-reset: st; }
+ol.flow li { counter-increment: st; display: grid; grid-template-columns: 26px 1fr; gap: 6px; align-items: baseline; }
+ol.flow li::before { content: counter(st); font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--hot); }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 13px; line-height: 1.6; color: var(--fg); }
+.tree { font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">stream-hub · catalog service · step 1</span>
+    <h1>Catalog Cache LLD</h1>
+    <p class="lede">The catalog is read thousands of times a second and changes rarely, so reads come from Redis. The interesting part is what happens the moment a popular entry expires: without care, every request at that instant goes to Postgres at once.</p>
+  </header>
+
+  <section>
+    <h2>1 · Cache-aside, and the stampede it can cause</h2>
+    <figure>
+      <div class="board">
+        <svg viewBox="0 0 1200 250" role="img" aria-label="Plain cache-aside: read Redis, on a miss read Postgres and write the value back. When a popular key expires, thousands of requests miss at the same instant and all hit Postgres: a stampede. With protection, one request refreshes while the others are served the slightly stale value.">
+          <defs>
+            <marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-fg" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="c1h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-hot" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="c1r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h-rep" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+          <text class="t" x="20" y="30">Without protection</text>
+          <rect class="box" x="20" y="44" width="180" height="70" rx="6"/>
+          <text class="t" x="110" y="72" text-anchor="middle">5,000 requests</text>
+          <text class="s" x="110" y="92" text-anchor="middle">for the same title</text>
+          <rect class="box-dim" x="300" y="44" width="160" height="70" rx="6"/>
+          <text class="t" x="380" y="72" text-anchor="middle">Redis</text>
+          <text class="s" x="380" y="92" text-anchor="middle">key just expired</text>
+          <rect class="box-hot" x="560" y="44" width="160" height="70" rx="6"/>
+          <text class="t" x="640" y="72" text-anchor="middle">Postgres</text>
+          <text class="lbl-hot" x="640" y="92" text-anchor="middle">5,000 identical queries</text>
+          <line class="a-fg" x1="200" y1="79" x2="297" y2="79" marker-end="url(#c1)"/>
+          <text class="md" x="248" y="71" text-anchor="middle">all miss</text>
+          <line class="a-hot" x1="460" y1="79" x2="557" y2="79" marker-end="url(#c1h)"/>
+          <text class="lbl-hot" x="508" y="71" text-anchor="middle">all go here</text>
+          <text class="md" x="740" y="84">the database slows, requests time out, clients retry: worse</text>
+
+          <text class="t" x="20" y="160">With protection</text>
+          <rect class="box" x="20" y="174" width="180" height="70" rx="6"/>
+          <text class="t" x="110" y="202" text-anchor="middle">5,000 requests</text>
+          <rect class="box-rep" x="300" y="174" width="220" height="70" rx="6"/>
+          <text class="t" x="410" y="200" text-anchor="middle">Redis</text>
+          <text class="s" x="410" y="220" text-anchor="middle">entry is past "fresh until",</text>
+          <text class="s" x="410" y="236" text-anchor="middle">but still there</text>
+          <rect class="box-hot" x="620" y="174" width="160" height="70" rx="6"/>
+          <text class="t" x="700" y="202" text-anchor="middle">Postgres</text>
+          <text class="lbl-hot" x="700" y="222" text-anchor="middle">1 query</text>
+          <line class="a-fg" x1="200" y1="209" x2="297" y2="209" marker-end="url(#c1)"/>
+          <line class="a-hot" x1="520" y1="200" x2="617" y2="200" marker-end="url(#c1h)"/>
+          <text class="lbl-hot" x="568" y="192" text-anchor="middle">1 wins the lock</text>
+          <text class="lbl-rep" x="800" y="200">4,999 get the stale copy at once,</text>
+          <text class="lbl-rep" x="800" y="216">a few seconds old</text>
+        </svg>
+      </div>
+      <figcaption>Catalog data being a few seconds stale is fine; a database falling over is not. That trade-off is the whole design.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>2 · The read path</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Each cached entry holds</h3>
+        <div class="tbl-wrap"><table>
+          <tbody>
+            <tr><td><code>value</code></td><td>the title as JSON</td></tr>
+            <tr><td><code>freshUntil</code></td><td>now + 5 min ± random jitter</td></tr>
+            <tr><td>Redis TTL</td><td>1 hour: the stale copy stays available well past freshUntil</td></tr>
+          </tbody>
+        </table></div>
+        <p class="lede">The jitter spreads expiries out, so keys cached together don't all go stale in the same second.</p>
+      </div>
+      <div class="card">
+        <h3>get(titleId)</h3>
+        <ol class="flow">
+          <li><span><b>Fresh hit:</b> return it. Most requests end here.</span></li>
+          <li><span><b>Stale hit:</b> try <code>SET lock NX EX 5</code>. Winner reloads from Postgres and rewrites the entry. Everyone else returns the stale value immediately.</span></li>
+          <li><span><b>Complete miss:</b> the lock winner loads; the others wait for the entry to appear for as long as someone holds the lock. If the lock is free and there's still no entry, the loader failed, and the next request takes the lock and loads.</span></li>
+          <li><span><b>Double-check:</b> whoever wins the lock looks at the entry once more first. Another request may have refreshed it and released the lock a moment ago.</span></li>
+          <li><span><b>Not found:</b> cache a short-lived "missing" marker too, so a stream of requests for an id that doesn't exist can't hammer the database.</span></li>
+          <li><span><b>Redis down:</b> read Postgres directly (slower, still correct), and count it on a metric.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · Writes and what proves it</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Writes</h3>
+        <p>Update Postgres first, then <b>delete</b> the cache key (don't rewrite it): the next read loads the new value. Deleting avoids a race where two concurrent writers leave the cache holding the older of the two values. The change is also published for the search indexer (step 2).</p>
+      </div>
+      <div class="card">
+        <h3>Tests (real Postgres + Redis via Testcontainers)</h3>
+        <div class="tbl-wrap"><table>
+          <tbody>
+            <tr><td>Stampede, stale key</td><td>200 threads at once: exactly 1 database read</td></tr>
+            <tr><td>Stampede, cold key</td><td>200 threads at once: at most a handful of reads</td></tr>
+            <tr><td>Update</td><td>the next read after a write sees the new value</td></tr>
+            <tr><td>Missing id</td><td>1,000 requests for an unknown id: 1 database read</td></tr>
+            <tr><td>Redis stopped</td><td>reads still succeed from Postgres</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+</div>
