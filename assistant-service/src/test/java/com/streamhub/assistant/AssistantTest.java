@@ -144,6 +144,21 @@ class AssistantTest {
     }
 
     @Test
+    void anAccountOutOfCreditAlsoOpensTheBreaker() {
+        // Seen live: a new account answers 400 "credit balance is too low" to every call.
+        FakeUpstreams.claudeStatus = 400;
+        String[] questions = {"a space adventure", "a romantic comedy", "a crime thriller", "a horror film",
+                "a family cartoon"};
+        for (int i = 0; i < 5; i++) {
+            assertEquals(AssistantService.Mode.FALLBACK, assistant.ask(user(), questions[i]).mode());
+        }
+        assertEquals(5, FakeUpstreams.claudeRequests.size(), "a 4xx isn't retried");
+        assertEquals(CircuitBreaker.State.OPEN, breakers.circuitBreaker("claude").getState());
+        assertEquals("breaker_open", assistant.ask(user(), "a war film").reason());
+        assertEquals(5, FakeUpstreams.claudeRequests.size());
+    }
+
+    @Test
     void aSlowClaudeFallsBackInTime() {
         FakeUpstreams.claudeDelayMs = 3_000;
         AssistantService.Answer a = assistant.ask(user(), "space");

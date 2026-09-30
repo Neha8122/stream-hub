@@ -1,0 +1,39 @@
+# Settings every service reads. Postgres, Redis, Kafka and Jaeger run outside
+# the cluster (docker compose), the way managed databases and brokers (RDS,
+# ElastiCache, MSK) sit outside a production cluster. deploy/up.sh attaches
+# those containers to kind's Docker network, so pods reach them by name:
+# directly, not through Docker Desktop's host proxy (host.docker.internal),
+# which measured 3.4x slower per Redis round trip (216 us vs 63 us).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stream-hub-config
+data:
+  DB_USER: streamhub
+  CATALOG_DB_URL: jdbc:postgresql://infra-postgres-1:5432/catalog
+  USERS_DB_URL: jdbc:postgresql://infra-postgres-1:5432/users
+  HISTORY_DB_URL: jdbc:postgresql://infra-postgres-1:5432/history
+  REDIS_HOST: infra-redis-1
+  KAFKA_BOOTSTRAP: infra-kafka-1:9094                 # Kafka's listener for containers
+  OTLP_ENDPOINT: http://infra-jaeger-1:4318/v1/traces
+  TRACE_SAMPLING: "0.1"                               # 10% under load; 1.0 in local dev
+  # JVM sizing for one small, shared node. Overrides the image's default.
+  # Memory: at 60% heap and generous replica counts the node ran out of
+  # memory and swapped (load average 34 with the CPU 95% idle). Smaller heap
+  # and thread stacks. (Not a smaller code cache: capping it at 64 MB forced
+  # full GCs of up to 0.8 s when it filled, and reserving it costs nothing.)
+  # CPU: with no CPU limit the JVM sees all 8 of the node's cores and sizes
+  # GC and JIT thread pools for them; on a node shared by 13 JVMs those
+  # threads get descheduled mid-pause, and GC pauses reached 0.9 s, past
+  # home's 150 ms timeouts, which opened the breakers. ActiveProcessorCount
+  # tells it its real share while keeping no CPU limit (no throttling).
+  # With 2 CPUs the JVM would pick Serial GC; G1 keeps young pauses short.
+  JAVA_TOOL_OPTIONS: "-XX:ActiveProcessorCount=2 -XX:+UseG1GC -XX:MaxRAMPercentage=50 -Xss512k -XX:+ExitOnOutOfMemoryError"
+  # Service to service: cluster DNS names.
+  CATALOG_URL: http://catalog-service:8181
+  USERS_URL: http://user-service:8182
+  PLAYBACK_URL: http://playback-service:8183
+  HISTORY_URL: http://history-service:8184
+  HOME_URL: http://home-service:8185
+  RECS_URL: http://recs-service:8186
+  ASSISTANT_URL: http://assistant-service:8187

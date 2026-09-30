@@ -25,6 +25,7 @@ home:
   breaker:
     open-for: 5s                  # how long to leave a failing dependency alone
   genres: drama,sci-fi,comedy     # one row each
+  shared-rows-fresh-for: 30s      # genre rows are the same for everyone: reuse a copy this fresh
 
 management:
   endpoints:

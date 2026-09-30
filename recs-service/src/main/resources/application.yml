@@ -29,6 +29,7 @@ spring:
 
 recs:
   half-life: 3d                       # a minute watched 3 days ago counts half as much as one now
+  cache-for: 30s                      # a computed row is reused this long, unless the taste changes first
   catalog:
     url: ${CATALOG_URL:http://localhost:8181}
     timeout: 300ms

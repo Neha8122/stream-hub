@@ -18,7 +18,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -71,10 +70,10 @@ public final class Claude {
                 .slowCallRateThreshold(50)
                 .waitDurationInOpenState(s.openFor())
                 .permittedNumberOfCallsInHalfOpenState(2)
-                // 400 means our request was wrong: a bug, not an unwell API.
-                // 401/403 (bad key), 429 (rate limited) and 529 (overloaded)
-                // all count: backing off is exactly right for them.
-                .ignoreExceptions(HttpClientErrorException.BadRequest.class)
+                // Every failure counts, 4xx included. It's tempting to ignore
+                // 400 as "our request's fault", but the API also answers 400
+                // when the account is out of credit (seen live): then every
+                // call fails, and the breaker should stop sending them.
                 .build());
         // One retry for 5xx/529 or a dropped connection, after ~0.5-1.5 s.
         // Never for a timeout (8 s already spent) or a 429 (retrying makes it worse).

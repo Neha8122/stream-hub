@@ -1,0 +1,3 @@
+# Images are built from the packaged jars only; don't send sources or other build output.
+**
+!*/target/*-SNAPSHOT.jar

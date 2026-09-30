@@ -1,0 +1,10 @@
+# Local Kubernetes: one node in Docker. The gateway's NodePort (30080) is
+# published on localhost:8280, so the cluster runs beside the processes on 818x.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: stream-hub
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8280

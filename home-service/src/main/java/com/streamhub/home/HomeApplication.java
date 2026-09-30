@@ -68,8 +68,10 @@ public class HomeApplication {
     @Bean HomeService homeService(@Qualifier("history") Dependency history, @Qualifier("catalog") Dependency catalog,
                                   @Qualifier("recs") Dependency recs,
                                   @Value("${home.genres}") String genres, @Value("${home.deadline}") Duration deadline,
+                                  @Value("${home.shared-rows-fresh-for}") Duration sharedRowsFreshFor,
                                   MeterRegistry metrics) {
-        return new HomeService(history, catalog, recs, Arrays.asList(genres.split(",")), deadline, metrics);
+        return new HomeService(history, catalog, recs, Arrays.asList(genres.split(",")), deadline,
+                sharedRowsFreshFor, metrics);
     }
 
     private final java.util.function.Supplier<HomeService> home;

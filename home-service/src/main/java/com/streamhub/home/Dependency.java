@@ -66,10 +66,14 @@ public final class Dependency {
                 .maxWaitDuration(Duration.ZERO)
                 .build());
 
-        // Open when half of the last 20 calls (at least 10) failed or were slow.
+        // Open when half the calls of the last 10 seconds (at least 10 calls)
+        // failed or were slow. A time window, not "the last 20 calls": under
+        // load 20 calls is under half a second, so one GC pause in a
+        // dependency failed 100% of the window and opened the breaker for
+        // 5 s, degrading ~225 pages for a 0.8 s blip (seen, see README).
         this.breaker = breakers.circuitBreaker(name, CircuitBreakerConfig.custom()
-                .slidingWindowType(CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
-                .slidingWindowSize(20)
+                .slidingWindowType(CircuitBreakerConfig.SlidingWindowType.TIME_BASED)
+                .slidingWindowSize(10)
                 .minimumNumberOfCalls(10)
                 .failureRateThreshold(50)
                 .slowCallDurationThreshold(s.timeout().multipliedBy(9).dividedBy(10))

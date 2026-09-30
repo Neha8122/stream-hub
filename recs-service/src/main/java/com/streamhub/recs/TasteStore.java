@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
  *   recs:seen:{user}    set   titles the user has watched (never recommended back)
  *   recs:trend:{hour}   zset  seconds watched per title in that hour (for cold start)
  *   recs:done:{event}   flag  this event was applied (idempotency)
+ *   recs:foryou:{user}  json  the last computed "for you" row, for 30 s
  *
  * All four change together in one Lua script, so an event is applied exactly
  * once in effect: Kafka may deliver it twice, but the second time the flag is
@@ -53,6 +54,7 @@ public class TasteStore {
             redis.call('ZINCRBY', KEYS[4], ARGV[5], ARGV[4])
             redis.call('EXPIRE', KEYS[4], ARGV[8])
             redis.call('SET', KEYS[1], '1', 'EX', ARGV[6])
+            redis.call('DEL', KEYS[5])       -- taste changed: the cached row is out of date
             return 1
             """, Long.class);
 
@@ -79,7 +81,7 @@ public class TasteStore {
     public Applied apply(String eventId, long userId, long titleId, int watchedSeconds, Instant when,
                          Taste previous, Taste next) {
         Long r = redis.execute(APPLY,
-                List.of(doneKey(eventId), tasteKey(userId), seenKey(userId), trendKey(when)),
+                List.of(doneKey(eventId), tasteKey(userId), seenKey(userId), trendKey(when), forYouKey(userId)),
                 previous == null ? "" : Long.toString(previous.at().toEpochMilli()),
                 next.encoded(), Long.toString(next.at().toEpochMilli()),
                 Long.toString(titleId), Integer.toString(watchedSeconds),
@@ -109,6 +111,21 @@ public class TasteStore {
                 .limit(limit).map(t -> Long.valueOf(t.getValue())).toList();
     }
 
+    /**
+     * The computed row, reused for a short while: each page view would
+     * otherwise be a vector search in the catalog. Cleared whenever the
+     * user's taste changes (see APPLY), so it's never stale about what they
+     * just watched; the TTL only bounds how long trending can lag.
+     */
+    public Optional<String> cachedForYou(long userId) {
+        return Optional.ofNullable(redis.opsForValue().get(forYouKey(userId)));
+    }
+
+    public void cacheForYou(long userId, String json, Duration ttl) {
+        redis.opsForValue().set(forYouKey(userId), json, ttl);
+    }
+
+    private static String forYouKey(long u) { return "recs:foryou:" + u; }
     private static String tasteKey(long u) { return "recs:taste:" + u; }
     private static String seenKey(long u) { return "recs:seen:" + u; }
     private static String doneKey(String e) { return "recs:done:" + e; }

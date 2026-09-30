@@ -17,7 +17,7 @@ assistant that keeps working when the AI doesn't.
 | 4 | Observability: OpenTelemetry, Prometheus, Grafana, SLOs | ✅ |
 | 5 | AI: embeddings, hybrid search, live-feature recommendations | ✅ |
 | 6 | Assistant: LLM behind a breaker, semantic cache, guardrails | ✅ |
-| 7 | Kubernetes, autoscaling, load tests, measured results | ⬜ |
+| 7 | Kubernetes, autoscaling, load tests, measured results | ✅ (last tuning round not yet re-measured) |
 
 ## Catalog cache
 
@@ -251,12 +251,72 @@ The key is read only from `STREAM_HUB_ANTHROPIC_KEY`, never from
 such as a work one); a test fails if it's ever picked up. Without a key the
 service still runs and answers from search.
 
-Tests: 11, against real Redis and the real embedding model, with a fake
+Tests: 12, against real Redis and the real embedding model, with a fake
 Messages API that records every request. Switching off each guard makes a
 test fail: dropping unknown ids, stripping brackets, the cache threshold
 (0.7 serves the wrong answer), the budget, not retrying timeouts, not
 caching refusals, the breaker, ignoring `ANTHROPIC_API_KEY`, and refusing
 to answer without retrieval.
+
+Not yet run against the real API with credit (no live Claude calls for now).
+
+Found live: a new API account with no credit answers every call with
+`400 "credit balance is too low"`. The breaker had been set to ignore 400s
+("our request's fault, not an unwell API"), so it would never have opened
+and every ask would keep paying a round trip. It now counts every failure,
+with a test for exactly this; and a fallback now logs the API's status and
+message, which is how the cause was found in one call.
+
+## Kubernetes and load tests
+
+`deploy/up.sh` builds one image per service (layered jars, non-root), starts
+a local cluster with kind, and deploys everything with kustomize
+(`deploy/k8s/`): startup, liveness and readiness probes, graceful shutdown
+(a preStop pause so no request lands on a closing pod), rolling updates
+with no capacity lost, secrets generated at deploy time (never in git), and
+CPU autoscalers. Postgres, Redis and Kafka stay outside the cluster, as
+managed services would. `load/run.sh <rate>` drives the home page with k6
+at a fixed arrival rate (an open model, so a slow system can't slow the
+test down and hide its own latency) and records pods, CPU and restarts
+every 10 seconds.
+
+Everything ran on one laptop: one 8-CPU, 7.75 GB Docker VM for the cluster
+and databases, k6 on the same machine, and the Mac itself swapping heavily
+(21 GB of swap in use by the end). Absolute numbers are this laptop's, not
+the design's. What the runs are good for is what they found:
+
+| Run | Load | p50 | p95 | p99 | Errors | What it showed |
+|---|---|---|---|---|---|---|
+| 1 | 150/s | 298 ms | 6.1 s | 12.8 s | 3.8% | 97% of pages degraded: catalog, history and recs had one pod each and only home and gateway scaled. Catalog got 3 calls per page for rows that are the same for everyone. Probe timeouts (1 s default) failed on busy pods and liveness restarted one |
+| 2 | 150/s | 10.3 s | 25 s | 39 s | 41% | After caching genre rows in home and "for you" in recs, and scaling the backends too: worse. More pods meant more JVMs than memory for them |
+| 3 | 60/s | 868 ms | 9.4 s | 12.4 s | 6.8% | Load average 34 with the CPU 95% idle: the node was swapping, not busy |
+| 4 | 60/s | 44 ms | 4.0 s | 9.7 s | 1.1% | Replica caps set by memory, smaller heaps: the median recovered, the tail didn't. GC pauses up to 0.9 s in history and recs, which opened home's breakers |
+| 5 | 60/s | **16 ms** | **360 ms** | **818 ms** | **0.07%** | The JVM told its real CPU share (`ActiveProcessorCount=2`): with no CPU limit it had sized GC threads for all 8 cores, and they stalled mid-pause on a shared node |
+
+Changes that came out of it, each tied to a measurement:
+
+- **Cache what's shared, not more pods.** Genre rows are cached in home for
+  30 s (one catalog call per genre, not three per page), and "for you" in
+  recs for 30 s, cleared whenever that user's taste changes, so it's still
+  live. Both have tests, including one that fails if the clear is removed.
+- **Probes sized for a busy pod.** Liveness 5 s timeout and 6 misses (a
+  minute) before a restart, readiness 3 s. A liveness probe that restarts
+  a slow pod turns load into an outage.
+- **Autoscaling bounded by what the node can hold,** and at most one new pod
+  a minute: a JVM's first minute is spent on class loading and JIT.
+- **No CPU limits, but the JVM told its share.** Limits throttle the JVM in
+  100 ms slices (p99 spikes); without them the JVM sizes its thread pools
+  for every core on the node.
+- **Pods reach the databases directly** on Docker's network, not through
+  Docker Desktop's host proxy: 63 us vs 216 us per Redis round trip.
+
+Not yet measured: after run 5 the code cache cap was removed (it was forcing
+full GCs of up to 0.8 s when it filled), G1 was set explicitly, and home's
+circuit breaker moved from "the last 20 calls" to "the last 10 seconds". At
+45 pages/s, 20 calls is under half a second, so one GC pause in a
+dependency filled the whole window with failures and opened the breaker for
+5 s: run 5 had ~200 failed calls but ~3,000 degraded pages. The final run
+with these changes needs a machine that isn't already swapping.
 
 ## Run it
 
@@ -286,6 +346,10 @@ curl -H "Authorization: Bearer <token>" -H 'Content-Type: application/json' \
 
 mvn test                                         # needs Docker running
 
+# Kubernetes (kind), gateway on localhost:8280
+deploy/up.sh
+load/run.sh 60                                   # pages per second
+
 open http://localhost:16686   # Jaeger: traces
 open http://localhost:3000    # Grafana: the stream-hub dashboard
 open http://localhost:9090/alerts   # Prometheus: SLO alerts
@@ -314,5 +378,7 @@ assistant-service/ Claude-backed assistant: RAG over catalog search, guardrails,
 home-service/      home page: parallel rows, deadline, breakers, bulkheads, fallbacks
 infra/             docker-compose for Postgres, Redis, Kafka, Jaeger, Prometheus, Grafana;
                    Prometheus SLO rules and alerts, Grafana dashboard
+deploy/            Dockerfile, kind cluster, Kubernetes manifests, up.sh
+load/              k6 load test and a runner that records pods and CPU
 docs/              design pages
 ```

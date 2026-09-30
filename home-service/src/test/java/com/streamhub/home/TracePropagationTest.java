@@ -23,7 +23,7 @@ import org.springframework.test.context.DynamicPropertySource;
  * including the ones made on row threads.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "management.otlp.tracing.endpoint=http://localhost:1/unused")
+        properties = {"management.otlp.tracing.endpoint=http://localhost:1/unused", "home.shared-rows-fresh-for=0s"})
 @AutoConfigureObservability                 // tracing is off in tests unless asked for
 class TracePropagationTest {
 

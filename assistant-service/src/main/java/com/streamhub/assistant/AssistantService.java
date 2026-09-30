@@ -135,7 +135,14 @@ public final class AssistantService {
             reply = claude.call(SYSTEM, prompt(question, titles), "answer", ANSWER_SCHEMA,
                     "Reply to the viewer. Always use this tool.");
         } catch (RuntimeException e) {
-            return fallback(reason(e), titles);
+            String reason = reason(e);
+            // The API's own words (status and error message; never our key) say what to fix.
+            String detail = e instanceof org.springframework.web.client.RestClientResponseException r
+                    ? r.getStatusCode().value() + " " + r.getResponseBodyAsString().replaceAll("\\s+", " ")
+                    : e.toString();
+            log.warn("claude call failed ({}), answering from search: {}", reason,
+                    detail.substring(0, Math.min(300, detail.length())));
+            return fallback(reason, titles);
         }
         metrics.counter("assistant.tokens", "kind", "input").increment(reply.usage().inputTokens());
         metrics.counter("assistant.tokens", "kind", "output").increment(reply.usage().outputTokens());

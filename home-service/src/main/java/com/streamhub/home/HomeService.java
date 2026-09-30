@@ -53,11 +53,19 @@ public final class HomeService {
             Executors.newVirtualThreadPerTaskExecutor(),
             ContextSnapshotFactory.builder().build()::captureAll);
     private final MeterRegistry metrics;
-    /** Last good copy of each shared (non-personal) row, served when catalog is down. */
-    private final Map<String, Row> lastGood = new ConcurrentHashMap<>();
+    /** Last good copy of each shared (non-personal) row, and when it was fetched. */
+    private final Map<String, Fetched> lastGood = new ConcurrentHashMap<>();
+    private record Fetched(Row row, long atNanos) { }
+    /**
+     * Genre rows are the same for every user, so a copy this fresh is served
+     * without asking the catalog. Measured under load: without it catalog got
+     * three calls per page and every page degraded (see README, Kubernetes).
+     */
+    private final Duration sharedRowsFreshFor;
 
     public HomeService(Dependency history, Dependency catalog, Dependency recs, List<String> genres,
-                       Duration deadline, MeterRegistry metrics) {
+                       Duration deadline, Duration sharedRowsFreshFor, MeterRegistry metrics) {
+        this.sharedRowsFreshFor = sharedRowsFreshFor;
         this.metrics = metrics;
         // Both series exist from the start: a ratio over a missing
         // complete="false" series is "no data", not 0, while all is well.
@@ -160,11 +168,15 @@ public final class HomeService {
 
     private Outcome genreRow(String genre) {
         String id = "genre:" + genre;
+        Fetched cached = lastGood.get(id);
+        if (cached != null && System.nanoTime() - cached.atNanos() < sharedRowsFreshFor.toNanos()) {
+            return new Outcome(cached.row(), null);
+        }
         try {
             List<Item> items = Clients.byGenre(catalog, genre, 10).stream()
                     .map(t -> new Item(t.id(), t.name(), null)).toList();
             Row row = new Row(id, "Popular in " + genre, items, Source.LIVE);
-            lastGood.put(id, row);
+            lastGood.put(id, new Fetched(row, System.nanoTime()));
             return new Outcome(row, null);
         } catch (RuntimeException e) {
             return new Outcome(stale(id).orElse(null), catalog.name());
@@ -182,8 +194,9 @@ public final class HomeService {
     }
 
     private Optional<Row> stale(String id) {
-        Row r = lastGood.get(id);
-        return r == null ? Optional.empty() : Optional.of(new Row(r.id(), r.heading(), r.items(), Source.STALE));
+        Fetched f = lastGood.get(id);
+        return f == null ? Optional.empty()
+                : Optional.of(new Row(f.row().id(), f.row().heading(), f.row().items(), Source.STALE));
     }
 
     /** Test hook: forget the last good copies. */

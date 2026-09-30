@@ -18,7 +18,7 @@ import org.springframework.test.context.DynamicPropertySource;
  * Here history's timeout is a generous 1 s and history takes 800 ms; only
  * the page's 200 ms deadline keeps the page fast.
  */
-@SpringBootTest(properties = {"home.deadline=200ms", "home.history.timeout=1s"})
+@SpringBootTest(properties = {"home.shared-rows-fresh-for=0s", "home.deadline=200ms", "home.history.timeout=1s"})
 class DeadlineTest {
 
     @DynamicPropertySource

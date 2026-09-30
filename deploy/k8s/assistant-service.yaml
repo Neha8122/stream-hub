@@ -1,0 +1,69 @@
+# Generated from one table (see README, "Kubernetes"); every service gets the same shape.
+# assistant-service: carries the ONNX embedding model (native memory)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assistant-service
+  labels: {app: assistant-service, part-of: stream-hub}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: assistant-service}
+  strategy:
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}   # a new pod is ready before an old one goes
+  template:
+    metadata:
+      labels: {app: assistant-service, part-of: stream-hub}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: assistant-service
+          image: stream-hub/assistant-service:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8187
+          envFrom:
+            - configMapRef: {name: stream-hub-config}
+            - secretRef: {name: stream-hub-secrets}
+          resources:
+            # CPU: a request (for scheduling and the autoscaler), no limit.
+            # A CPU limit throttles the JVM in 100 ms slices, which shows up
+            # as p99 spikes long before the pod is actually busy.
+            # Memory: a limit, since running out of it is not graceful.
+            requests: {cpu: 100m, memory: 640Mi}
+            limits: {memory: 1Gi}
+          # Spring Boot exposes these groups when it detects Kubernetes.
+          startupProbe:          # JVM start under a shared CPU can take a minute; don't kill it for that
+            httpGet: {path: /actuator/health/liveness, port: 8187}
+            periodSeconds: 3
+            failureThreshold: 60
+          # Probe timeouts sized for a busy pod, not an idle one: under load the
+          # 1 s default timed out on healthy pods, and liveness then restarted a
+          # busy gateway, pushing its traffic onto the others (seen, see README).
+          livenessProbe:         # restart only if the process is wedged, never for a sick dependency or load
+            httpGet: {path: /actuator/health/liveness, port: 8187}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6          # a minute of silence, not three slow answers
+          readinessProbe:        # out of the Service while starting or shutting down
+            httpGet: {path: /actuator/health/readiness, port: 8187}
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            # Removal from the Service's endpoints is asynchronous: keep serving
+            # a few seconds after SIGTERM is due, so no request hits a closed port.
+            preStop:
+              sleep: {seconds: 5}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: assistant-service
+  labels: {app: assistant-service, part-of: stream-hub}
+spec:
+  type: ClusterIP
+  selector: {app: assistant-service}
+  ports:
+    - port: 8187
+      targetPort: 8187

@@ -1,0 +1,47 @@
+# The node is one Docker VM (7.75 GB): replica caps are set by memory, not
+# CPU. Load tests found the limit was memory (swapping), and more pods made
+# it worse. Catalog, history and recs stay at one pod each: the page's hot
+# reads are cached (genre rows in home, "for you" in recs), so they're light.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: home-service
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: home-service}
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: 60}}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      # At most one new pod a minute. A JVM spends its first minute on class
+      # loading and JIT, 1-2 cores of it: scaling up faster than that on a
+      # busy node starved the serving pods and made latency worse, which
+      # asked for more pods (seen in run 2, see README).
+      policies: [{type: Pods, value: 1, periodSeconds: 60}]          # react at once to load
+    scaleDown:
+      stabilizationWindowSeconds: 60         # but don't flap back down (default is 5 min)
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: gateway}
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: 60}}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      # At most one new pod a minute. A JVM spends its first minute on class
+      # loading and JIT, 1-2 cores of it: scaling up faster than that on a
+      # busy node starved the serving pods and made latency worse, which
+      # asked for more pods (seen in run 2, see README).
+      policies: [{type: Pods, value: 1, periodSeconds: 60}]
+    scaleDown:
+      stabilizationWindowSeconds: 60

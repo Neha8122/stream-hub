@@ -26,7 +26,7 @@ import org.springframework.test.context.DynamicPropertySource;
 // Catalog gets room for a 60-page burst (60 x 4 calls) so the bulkhead test
 // isolates one question: does a slow history hurt catalog rows? Under a real
 // burst the catalog bulkhead would shed load too, by design.
-@SpringBootTest(properties = {"home.breaker.open-for=1s", "home.catalog.max-concurrent=300"})
+@SpringBootTest(properties = {"home.shared-rows-fresh-for=0s", "home.breaker.open-for=1s", "home.catalog.max-concurrent=300"})
 class ChaosTest {
 
     @DynamicPropertySource

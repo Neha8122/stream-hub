@@ -25,6 +25,7 @@ final class FakeCatalog {
 
     static final int DIMS = 384;
     static final AtomicInteger embeddingCalls = new AtomicInteger();
+    static final AtomicInteger nearestCalls = new AtomicInteger();
     static volatile boolean down;
     static final HttpServer server = start();
     private static final ObjectMapper json = new ObjectMapper();
@@ -69,6 +70,7 @@ final class FakeCatalog {
             long id = Long.parseLong(path.split("/")[2]);
             send(ex, id >= 1 && id <= 12 ? 200 : 404, id >= 1 && id <= 12 ? json.writeValueAsString(vector(id)) : "");
         } else if (path.equals("/titles/nearest")) {
+            nearestCalls.incrementAndGet();
             JsonNode req = json.readTree(ex.getRequestBody());
             float[] q = json.treeToValue(req.get("vector"), float[].class);
             Set<Long> exclude = new HashSet<>();

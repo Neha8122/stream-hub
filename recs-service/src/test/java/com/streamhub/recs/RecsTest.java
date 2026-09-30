@@ -121,6 +121,24 @@ class RecsTest {
     }
 
     @Test
+    void theRowIsReusedUntilTheirTasteChanges() {
+        long u = users.incrementAndGet();
+        watch(u, 1, 3);
+        awaitTaste(u, 3);
+        int before = FakeCatalog.nearestCalls.get();
+        List<Long> first = ids(recs.forYou(u, 10));
+        for (int i = 0; i < 5; i++) {
+            assertEquals(first, ids(recs.forYou(u, 10)));
+        }
+        assertEquals(before + 1, FakeCatalog.nearestCalls.get(), "six page views, one vector search");
+
+        watch(u, 5, 20);                               // taste moves to romance
+        awaitTaste(u, 23);
+        List<Long> after = ids(recs.forYou(u, 10));
+        assertEquals("romance", FakeCatalog.cluster(after.get(0)), "not served the old row: " + after);
+    }
+
+    @Test
     void aRedeliveredEventChangesNothing() {
         long once = users.incrementAndGet();
         long twice = users.incrementAndGet();
